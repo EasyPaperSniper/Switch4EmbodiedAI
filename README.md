@@ -1,0 +1,1 @@
+Only support single character for now as we use WHAM: Reconstructing World-grounded Humans with Accurate 3D Motion.

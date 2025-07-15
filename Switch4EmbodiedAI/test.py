@@ -1,14 +1,6 @@
 import cv2
 
-
-
-
-
-
-
-
 def main(capture_card_index=0):
-
     cap = cv2.VideoCapture(capture_card_index)  
 
     if not cap.isOpened():
@@ -20,15 +12,22 @@ def main(capture_card_index=0):
         if not ret:
             print("Can't receive frame (stream end?). Exiting ...")
             break
+        
 
+        # process the frame if needed, such as masking, resizing, etc.
         cv2.imshow('Nintendo Switch Stream', frame)
 
-        if cv2.waitKey(1) == ord('q'):
+
+
+
+
+
+
+        if cv2.waitKey(1)  == ord('q'):
             break
 
     cap.release()
     cv2.destroyAllWindows()
-
 
 
 

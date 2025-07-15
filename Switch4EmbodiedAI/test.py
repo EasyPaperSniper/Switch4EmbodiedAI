@@ -59,4 +59,4 @@ if __name__ == '__main__':
 
     romp = ROMP(romp_args)
 
-    # main(romp_args)
+    main(romp_args, romp)

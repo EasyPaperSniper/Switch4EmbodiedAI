@@ -1,3 +1,4 @@
 [submodule "third-party/ROMP"]
 	path = third-party/ROMP
-	url = https://github.com/Arthur151/ROMP.git
+	url = git@github.com:EasyPaperSniper/ROMP.git
+	branch = Switch4EAI

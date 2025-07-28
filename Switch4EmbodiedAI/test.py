@@ -10,7 +10,6 @@ from romp.utils import WebcamVideoStream
 def main(romp_args, romp):
     cap = cv2.VideoCapture(capture_card_index)  
 
-
     # cap = WebcamVideoStream(romp_args.webcam_id)
     # cap.start()
     # while True:
@@ -31,11 +30,6 @@ def main(romp_args, romp):
         outputs = romp(frame)
         # process the frame if needed, such as masking, resizing, etc.
         cv2.imshow('Nintendo Switch Stream', frame)
-
-
-
-
-
 
 
         if cv2.waitKey(1)  == ord('q'):

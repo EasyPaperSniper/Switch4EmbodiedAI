@@ -2,3 +2,6 @@
 	path = third_party/ROMP
 	url = https://github.com/EasyPaperSniper/ROMP.git
 	branch = Switch4EAI
+[submodule "third_party/GMR"]
+	path = third_party/GMR
+	url = https://github.com/YanjieZe/GMR.git

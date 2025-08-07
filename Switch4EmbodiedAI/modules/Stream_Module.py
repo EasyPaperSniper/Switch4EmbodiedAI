@@ -5,7 +5,7 @@ import torch
 import numpy as np
 
 
-class SimpleImageModule:
+class SimpleStreamModule:
     '''
     Get image from capture card.
     No complex processing, just a placeholder for future image processing tasks.
@@ -63,24 +63,26 @@ class SimpleImageModule:
 
 
 
-def test_imageModule(args):
+def test_StreamModule(stream_module_cfg):
 
-    image_module = SimpleImageModule(args)
-    image_module.start()
+    Stream_module = SimpleStreamModule(stream_module_cfg)
+    Stream_module.start()
 
     while True:
-        frame = image_module.read()
+        frame = Stream_module.read()
         if frame is None:
             break
         
         # Process the frame (e.g., display it)
-        cv2.imshow("Capture Card Frame", frame)
+        if stream_module_cfg.viz_stream:
+            cv2.imshow("Stream Module Output", frame)
+
 
         # Exit on 'q' key press
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-    image_module.stop()
+    Stream_module.stop()
     cv2.destroyAllWindows()
 
 
@@ -89,10 +91,8 @@ def test_imageModule(args):
 if __name__ == '__main__':
     
     
-    import argparse
-    parser = argparse.ArgumentParser(description="Image Module Test")
-    parser.add_argument("--capture_card_index", type=int, default=0, help="Index of the capture card.")
-    args = parser.parse_args()
+    from Switch4EmbodiedAI.utils.helper_args import get_args, parse_StreamModule_cfg
+    args = get_args()
+    stream_module_cfg = parse_StreamModule_cfg(args)
 
-
-    test_imageModule(args)
+    test_StreamModule(stream_module_cfg)

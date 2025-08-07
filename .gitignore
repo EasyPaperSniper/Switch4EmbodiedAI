@@ -1,3 +1,11 @@
 **DS_**
 **.egg**
 **.pkl
+*.egg-info/
+.eggs/
+__pycache__/
+demo/images/
+log/*
+simple_romp/.DS_Store
+.DS_Store
+**.Cpython-*

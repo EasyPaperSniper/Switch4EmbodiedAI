@@ -50,14 +50,15 @@ class SimpleStreamModule:
 
     def read(self):
         # return the frame most recently read
+        if self.config.viz_stream:
+            cv2.imshow("Stream Module Output", self.frame)
         return self.frame
     
 
     def stop(self):
         # indicate that the thread should be stopped
         self.stopped = True
-        # if cv2.waitKey(1)  == ord('q'):
-        #     break
+
 
     def save_frame(self, frame, path):
         if frame:
@@ -82,19 +83,13 @@ def test_StreamModule(stream_module_cfg):
         frame = Stream_module.read()
         if frame is None:
             break
-        
-
-        if stream_module_cfg.viz_stream:
-            cv2.imshow("Stream Module Output", frame)
-
 
         # Exit on 'q' key press
         if cv2.waitKey(1) & 0xFF == ord('q') or Stream_module.stopped:
-            Stream_module.stop()
             break
 
 
-    
+    Stream_module.stop()
     cv2.destroyAllWindows()
 
 
@@ -102,9 +97,7 @@ def test_StreamModule(stream_module_cfg):
 
 if __name__ == '__main__':
     
-    
     from Switch4EmbodiedAI.utils.helpers import get_args, parse_StreamModule_cfg
     args = get_args()
     stream_module_cfg = parse_StreamModule_cfg(args)
-
     test_StreamModule(stream_module_cfg)

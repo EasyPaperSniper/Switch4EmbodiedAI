@@ -4,7 +4,7 @@ import argparse
 
 import torch
 
-from Switch4EmbodiedAI import ROOT_DIR, RESULT_DIR
+from Switch4EmbodiedAI import ROOT_DIR, RESULT_DIR, ENV_DIR
 from Switch4EmbodiedAI.configs import *
 from romp.utils  import download_model
 
@@ -32,7 +32,7 @@ def get_args():
     # group Mocap Module
     mocap_group = parser.add_argument_group("Mocap", description="Arguments for Mocap Setting.")
     mocap_group.add_argument('--MocapModule', type=str, default='ROMP_MocapModule', help='The mocap module to use.')
-    mocap_group.add_argument('--viz_mocap', action='store_false', help='Whether to visualize the mocap module output.')
+    mocap_group.add_argument('--viz_mocap', action='store_true', help='Whether to visualize the mocap module output.')
     mocap_group.add_argument('--save_mocap', action='store_true', help='Whether to save the mocap module output.')
    
 
@@ -78,7 +78,9 @@ def parse_MocapModule_cfg(args):
 
     if args.viz_mocap:
         mocap_cfg.show = True
-    if  args.render_mesh or args.show_largest:
+    if mocap_cfg.show:
+        mocap_cfg.render_mesh = True
+    if  mocap_cfg.render_mesh or mocap_cfg.show_largest:
         mocap_cfg.calc_smpl = True
     if args.save_mocap:
         mocap_cfg.save_video = True

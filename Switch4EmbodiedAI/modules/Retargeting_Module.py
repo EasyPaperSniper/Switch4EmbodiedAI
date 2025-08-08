@@ -15,13 +15,29 @@ from rich import print
 
 class MotionRetargeting_Module():
     def __init__(self,
+                 config,
                  smplx_file,
                  robot="unitree_g1",):
-        pass
+        
+        self.config = config
+        self.retarget_module = GMR(
+            src_human="bvh",
+            tgt_robot=args.robot,
+            actual_human_height=actual_human_height,
+        )
+        
 
     def __call__(self, input_data):
-        pass
-        qpos = retarget.retarget(smplx_data)
+        return self.retarget(input_data)
+
+
+    def retarget(self, input_data):
+        # retarget the input data to the robot motion
+        qpos = self.retarget_module.retarget(input_data)
+        return qpos
+
+
+
 
 
 

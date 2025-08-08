@@ -1,3 +1,3 @@
-from Switch4EmbodiedAI.modules.Stream_Module import SimpleImageModule
+from Switch4EmbodiedAI.modules.Stream_Module import SimpleStreamModule
 from Mocap_Module import ROMP_MocapModule
 from Retargeting_Module import MotionRetargeting_Module

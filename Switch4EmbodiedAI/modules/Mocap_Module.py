@@ -26,31 +26,48 @@ class MocapModule(nn.Module):
 class ROMP_MocapModule(MocapModule):
     def __init__(self, config):
         super().__init__(config)
-        self.mocap_module = ROMP(romp_settings)
+        self.mocap_module = ROMP(config)
 
         
-    def forward(self, image, signal_ID=0, **kwargs):
-        outputs, image_pad_info = self.mocap_module.single_image_forward(image)
-        if outputs is None:
-            return None
-        if self.settings.temporal_optimize:
-            outputs = self.mocap_module.temporal_optimization(outputs, signal_ID)
-        outputs['cam_trans'] = self.mocap_module.convert_cam_to_3d_trans(outputs['cam'])
-        if self.settings.calc_smpl:
-            outputs = self.smpl_parser(outputs, root_align=self.settings.root_align) 
-            outputs.update(body_mesh_projection2image(outputs['joints'], outputs['cam'], vertices=outputs['verts'], input2org_offsets=image_pad_info))
-        if self.settings.render_mesh:
-            rendering_cfgs = {'mesh_color':'identity', 'items': self.visualize_items, 'renderer': self.settings.renderer} # 'identity'
-            outputs = rendering_romp_bev_results(self.renderer, outputs, image, rendering_cfgs)
-        if self.settings.show:
-            cv2.imshow('rendered', outputs['rendered_image'])
-            wait_func(self.settings.mode)
-        return convert_tensor2numpy(outputs)
-        return self.mocap_module(image, signal_ID=signal_ID, **kwargs)
+   
+def test_MocapModule(args):
+    stream_module_cfg = parse_StreamModule_cfg(args)
+    mocap_module_cfg = parse_MocapModule_cfg(args)
+
+
+    stream_module_class = eval(args.StreamModule)
+    stream_module = stream_module_class(stream_module_cfg)
+    mocap_module_class = eval(args.MocapModule)
+    mocap_module = mocap_module_class(mocap_module_cfg)
     
+    
+    stream_module.start()
+
+    while True:
+        frame = stream_module.read()
+        if frame is None:
+            break
+        
+        
+        # Process the frame (e.g., display it)
+        if stream_module_cfg.viz_stream:
+            cv2.imshow("Stream Module Output", frame)
+
+
+        # Exit on 'q' key press
+        if cv2.waitKey(1) & 0xFF == ord('q') or stream_module.stopped:
+            stream_module.stop()
+            break
+
+    
+    cv2.destroyAllWindows()
 
 
 
 
 if __name__ == "__main__":
-    # load image and give output
+    from Switch4EmbodiedAI.utils.helpers import get_args, parse_StreamModule_cfg, parse_MocapModule_cfg
+    from Switch4EmbodiedAI.modules.Stream_Module import *
+    args = get_args()
+    test_MocapModule(args)
+    

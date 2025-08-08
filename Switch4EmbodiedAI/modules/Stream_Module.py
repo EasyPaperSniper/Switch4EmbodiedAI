@@ -24,6 +24,7 @@ class SimpleStreamModule:
     def start(self):
         # start the thread to read frames from the video stream
         Thread(target=self.update, args=()).start()
+        Thread(target=self.monitor_input, daemon=True).start()
         return self
     
 
@@ -37,6 +38,15 @@ class SimpleStreamModule:
             # otherwise, read the next frame from the stream
             (self.grabbed, self.frame) = self.stream.read()
 
+
+    def monitor_input(self):
+        while not self.stopped:
+            user_input = input()
+            if user_input.strip().lower() == 'q':
+                self.stop()
+                return
+            
+            
 
     def read(self):
         # return the frame most recently read
@@ -73,16 +83,18 @@ def test_StreamModule(stream_module_cfg):
         if frame is None:
             break
         
-        # Process the frame (e.g., display it)
+
         if stream_module_cfg.viz_stream:
             cv2.imshow("Stream Module Output", frame)
 
 
         # Exit on 'q' key press
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        if cv2.waitKey(1) & 0xFF == ord('q') or Stream_module.stopped:
+            Stream_module.stop()
             break
 
-    Stream_module.stop()
+
+    
     cv2.destroyAllWindows()
 
 
@@ -91,7 +103,7 @@ def test_StreamModule(stream_module_cfg):
 if __name__ == '__main__':
     
     
-    from Switch4EmbodiedAI.utils.helper_args import get_args, parse_StreamModule_cfg
+    from Switch4EmbodiedAI.utils.helpers import get_args, parse_StreamModule_cfg
     args = get_args()
     stream_module_cfg = parse_StreamModule_cfg(args)
 

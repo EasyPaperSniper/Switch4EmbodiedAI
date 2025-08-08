@@ -24,16 +24,16 @@ def get_args():
     # group stream Module
     stream_group = parser.add_argument_group("StreamModule", description="Arguments for stream Module Setting.")
     stream_group.add_argument('--StreamModule', type=str, default='SimpleStreamModule', help='The stream module to use.')
-    stream_group.add_argument('--viz_stream', action='store_false', help='Whether to visualize the stream module output.')
-    stream_group.add_argument('--save_stream', action='store_false', help='Whether to save the stream module output.')
+    stream_group.add_argument('--viz_stream', action='store_true', help='Whether to visualize the stream module output.')
+    stream_group.add_argument('--save_stream', action='store_true', help='Whether to save the stream module output.')
 
 
 
     # group Mocap Module
     mocap_group = parser.add_argument_group("Mocap", description="Arguments for Mocap Setting.")
     mocap_group.add_argument('--MocapModule', type=str, default='ROMP_MocapModule', help='The mocap module to use.')
-    mocap_group.add_argument('--viz_mocap', action='store_true', help='Whether to visualize the mocap module output.')
-    mocap_group.add_argument('--save_mocap', action='store_false', help='Whether to save the mocap module output.')
+    mocap_group.add_argument('--viz_mocap', action='store_false', help='Whether to visualize the mocap module output.')
+    mocap_group.add_argument('--save_mocap', action='store_true', help='Whether to save the mocap module output.')
    
 
     
@@ -46,7 +46,9 @@ def get_args():
 
     args = parser.parse_args()
     if not torch.cuda.is_available():
-            args.device = -1
+        args.device = -1
+    if args.viz_mocap:
+        args.viz_stream = False
     return args
 
 
@@ -103,22 +105,6 @@ def parse_MocapModule_cfg(args):
     return mocap_cfg
     
 
-
-
-
-
-    if not os.path.exists(args.smpl_path):
-        if os.path.exists(args.smpl_path.replace('SMPL_NEUTRAL.pth', 'smpl_packed_info.pth')):
-            args.smpl_path = args.smpl_path.replace('SMPL_NEUTRAL.pth', 'smpl_packed_info.pth')
-        print('please prepare SMPL model files following instructions at https://github.com/Arthur151/ROMP/blob/master/simple_romp/README.md#installation')
-    if not os.path.exists(args.model_path):
-        romp_url = 'https://github.com/Arthur151/ROMP/releases/download/V2.0/ROMP.pkl'
-        download_model(romp_url, args.model_path, 'ROMP')
-    if not os.path.exists(args.model_onnx_path) and args.onnx:
-        romp_onnx_url = 'https://github.com/Arthur151/ROMP/releases/download/V2.0/ROMP.onnx'
-        download_model(romp_onnx_url, args.model_onnx_path, 'ROMP')
-    
-    return env_cfg
 
 
 def parse_RetargetingModule_cfg(args):

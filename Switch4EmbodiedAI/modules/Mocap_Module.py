@@ -9,7 +9,7 @@ from romp.post_parser import SMPL_parser, body_mesh_projection2image, parsing_ou
 from romp.utils import img_preprocess, create_OneEuroFilter, euclidean_distance, check_filter_state, \
     time_cost, download_model, determine_device, convert_cam_to_3d_trans,\
     wait_func, collect_frame_path, progress_bar, get_tracked_ids, smooth_results, convert_tensor2numpy, save_video_results
-
+from Switch4EmbodiedAI import ROOT_DIR, RESULT_DIR, ENV_DIR
 
 
 class MocapModule(nn.Module):
@@ -60,22 +60,24 @@ class ROMP_MocapModule(MocapModule):
         
    
 def test_MocapModule(args):
-    stream_module_cfg = parse_StreamModule_cfg(args)
+    # stream_module_cfg = parse_StreamModule_cfg(args)
     mocap_module_cfg = parse_MocapModule_cfg(args)
 
 
-    stream_module_class = eval(args.StreamModule)
-    stream_module = stream_module_class(stream_module_cfg)
+    # stream_module_class = eval(args.StreamModule)
+    # stream_module = stream_module_class(stream_module_cfg)
     mocap_module_class = eval(args.MocapModule)
     mocap_module = mocap_module_class(mocap_module_cfg)
     
     
-    stream_module.start()
+    # stream_module.start()
 
     frame_count = 0
+    frame = cv2.imread(ENV_DIR+'modules/test_images/Switch_input.png')
 
     while True:
-        frame = stream_module.read()
+        # frame = stream_module.read()
+        
         if frame is None:
             break
         
@@ -94,10 +96,10 @@ def test_MocapModule(args):
 
 
         # Exit on 'q' key press
-        if cv2.waitKey(1) & 0xFF == ord('q') or stream_module.stopped:
+        if cv2.waitKey(1) & 0xFF == ord('q') :#or stream_module.stopped:
             break
 
-    stream_module.stop()
+    # stream_module.stop()
     cv2.destroyAllWindows()
 
 

@@ -32,7 +32,7 @@ def get_args():
     # group Mocap Module
     mocap_group = parser.add_argument_group("Mocap", description="Arguments for Mocap Setting.")
     mocap_group.add_argument('--MocapModule', type=str, default='ROMP_MocapModule', help='The mocap module to use.')
-    mocap_group.add_argument('--viz_mocap', action='store_true', help='Whether to visualize the mocap module output.')
+    mocap_group.add_argument('--viz_mocap', action='store_false', help='Whether to visualize the mocap module output.')
     mocap_group.add_argument('--save_mocap', action='store_true', help='Whether to save the mocap module output.')
    
 

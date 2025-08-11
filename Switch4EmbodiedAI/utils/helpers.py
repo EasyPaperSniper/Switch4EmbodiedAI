@@ -1,8 +1,10 @@
 import os
 import os.path as osp
+import sys
 import argparse
 
 import torch
+import cv2
 
 from Switch4EmbodiedAI import ROOT_DIR, RESULT_DIR, ENV_DIR
 from Switch4EmbodiedAI.configs import *
@@ -32,16 +34,17 @@ def get_args():
     # group Mocap Module
     mocap_group = parser.add_argument_group("Mocap", description="Arguments for Mocap Setting.")
     mocap_group.add_argument('--MocapModule', type=str, default='ROMP_MocapModule', help='The mocap module to use.')
-    mocap_group.add_argument('--viz_mocap', action='store_false', help='Whether to visualize the mocap module output.')
+    mocap_group.add_argument('--viz_mocap', action='store_true', help='Whether to visualize the mocap module output.')
     mocap_group.add_argument('--save_mocap', action='store_true', help='Whether to save the mocap module output.')
    
 
-    
-    
-    
     # group motion retageting
     retargeting_group = parser.add_argument_group("Retargeting", description="Arguments for Retargeting Setting.")
-
+    retargeting_group.add_argument('--RetgtModule', type=str, default='GMR_RetgtModule', help='The retargeting module to use.')
+    retargeting_group.add_argument('--robot', type=str, default='unitree_g1', help='The robot to use for retargeting.')
+    retargeting_group.add_argument('--viz_retgt', action='store_false', help='Whether to visualize the retargeted motion.')
+    retargeting_group.add_argument('--save_retgt', action='store_true', help='Whether to save the retargeted motion.')
+    retargeting_group.add_argument('--record_retgt', action='store_true', help='Whether to record the video of the retargeted motion.')
 
 
     args = parser.parse_args()
@@ -103,28 +106,32 @@ def parse_MocapModule_cfg(args):
 
 
 
-
     return mocap_cfg
     
 
 
 
-def parse_RetargetingModule_cfg(args):
-    from TM2_buddyImitation.configs.env_cfg import TM2Cfg
+def parse_RetgtModule_cfg(args):
+    retgt_cfg = eval(args.RetgtModule+'Config()')
+    if args.robot in ["unitree_g1", "booster_t1", "stanford_toddy", "fourier_n1", "engineai_pm01"]:
+        retgt_cfg.robot = args.robot
+    if args.save_retgt:       
+        retgt_cfg.save_retgt = True
+        retgt_cfg.record_video = args.record_retgt
+    else:
+        retgt_cfg.record_video = False
+    retgt_cfg.viz_retgt = args.viz_retgt
+    retgt_cfg.save_path = args.save_path
     
-    env_cfg = TM2Cfg()
-    if args.device is not None:
-        env_cfg.sim_params.device = args.device
-    if args.num_envs is not None:
-        env_cfg.env.num_envs = args.num_envs
-    if args.max_episode_length_s is not None:
-        env_cfg.env.max_episode_length_s = args.max_episode_length_s
 
-    
-    env_cfg.robot_setting = args.task
-    env_cfg.demo.demo_name = args.motion_name
-    env_cfg.demo.data_dir = TM2_ROOT_DIR+'/TM2_buddyImitation/results/saved/trajectories/dataset/{}.npy'.format(env_cfg.demo.demo_name)
-    env_cfg.seed = args.seed
-    env_cfg.sim_params.render = args.render
-    
-    return env_cfg
+    return retgt_cfg
+
+
+
+
+
+
+def signal_handler(sig, frame):
+    print("Terminating program...")
+    cv2.destroyAllWindows()
+    sys.exit(0)

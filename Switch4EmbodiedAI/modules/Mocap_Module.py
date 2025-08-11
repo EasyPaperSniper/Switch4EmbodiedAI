@@ -73,7 +73,7 @@ def test_MocapModule(args):
     # stream_module.start()
 
     frame_count = 0
-    frame = cv2.imread(ENV_DIR+'modules/test_images/Switch_input.png')
+    frame = cv2.imread(ENV_DIR+'/modules/test_images/Switch_input.png')
 
     while True:
         # frame = stream_module.read()
@@ -83,6 +83,8 @@ def test_MocapModule(args):
         
         
         mocap_reuslt = mocap_module(frame)
+        # for key, value in mocap_reuslt.items():
+        #     print(key, value.shape)
 
 
         if mocap_reuslt is not None:
@@ -96,7 +98,7 @@ def test_MocapModule(args):
 
 
         # Exit on 'q' key press
-        if cv2.waitKey(1) & 0xFF == ord('q') :#or stream_module.stopped:
+        if cv2.waitKey(1) & 0xFF == ord('q'): #or stream_module.stopped:
             break
 
     # stream_module.stop()

@@ -93,9 +93,10 @@ class GMR_RetgtModule():
             self.mocap_delta_pos[2] = smplx_data["transl"][0,2] - human_height * 0.5 -0.05
 
         smplx_data["transl"] -= self.mocap_delta_pos
+        print(smplx_data["smpl_betas"])
 
         smplx_output = body_model(
-            betas=torch.tensor(smplx_data["smpl_betas"]).float().view(1, -1), # (16,)
+            # betas=torch.tensor(smplx_data["smpl_betas"]).float().view(1, -1), # (16,)
             global_orient=torch.tensor(smplx_data["global_orient_amass"]).float(), # (N, 3)
             body_pose=torch.tensor(smplx_data["body_pose"][:,:63]).float(), # (N, 63)
             transl=torch.tensor(smplx_data["transl"]).float(), # (N, 3)

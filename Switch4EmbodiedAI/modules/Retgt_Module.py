@@ -53,6 +53,7 @@ class GMR_RetgtModule():
             
         qpos = self.retgt_module.retarget(smplx_data_frames)
 
+
         if self.config.viz_retgt:
             self.robot_motion_viewer.step(
                 root_pos=qpos[:3],
@@ -64,6 +65,12 @@ class GMR_RetgtModule():
                 rate_limit=self.config.rate_limit,
             )
         return qpos
+    
+    def close(self):
+        """Close the robot motion viewer if it exists."""
+        if self.robot_motion_viewer is not None:
+            self.robot_motion_viewer.close()
+            print("Robot motion viewer closed.")
     
 
     def load_smplx_file(self, smplx_data, smplx_body_model_path):
@@ -82,18 +89,16 @@ class GMR_RetgtModule():
         
         # adjust the camera height
         if self.retgt_module is None:
-            self.mocap_base_height = smplx_data["cam_trans"][0,2] - human_height * 0.5
-            smplx_data["cam_trans"][:,2]  = human_height * 0.5
-        else:
-            smplx_data["cam_trans"][:,2] -= self.mocap_base_height
+            self.mocap_delta_pos = smplx_data["transl"][0]
+            self.mocap_delta_pos = smplx_data["transl"][0,2] - human_height * 0.5
 
-        print(smplx_data["global_orient"])
+        smplx_data["transl"][:,2] -= self.mocap_delta_pos
 
         smplx_output = body_model(
             betas=torch.tensor(smplx_data["smpl_betas"]).float().view(1, -1), # (16,)
-            global_orient=torch.tensor(smplx_data["global_orient"]).float(), # (N, 3)
+            global_orient=torch.tensor(smplx_data["global_orient_amass"]).float(), # (N, 3)
             body_pose=torch.tensor(smplx_data["body_pose"][:,:63]).float(), # (N, 63)
-            transl=torch.tensor(smplx_data["cam_trans"]).float(), # (N, 3)
+            transl=torch.tensor(smplx_data["transl"]).float(), # (N, 3)
             left_hand_pose=torch.zeros(num_frames, 45).float(),
             right_hand_pose=torch.zeros(num_frames, 45).float(),
             jaw_pose=torch.zeros(num_frames, 3).float(),
@@ -102,8 +107,7 @@ class GMR_RetgtModule():
             # expression=torch.zeros(num_frames, 10).float(),
             return_full_pose=True,
         )
-        # print(smplx_output.full_pose.shape)
-        
+
         
         return smplx_data, body_model, smplx_output, human_height
     
@@ -169,8 +173,9 @@ def test_RetgtModule(args):
         if cv2.waitKey(1) & 0xFF == ord('q'): 
             break
 
-
+    
     cv2.destroyAllWindows()
+    retgt_module.close()
 
 
 

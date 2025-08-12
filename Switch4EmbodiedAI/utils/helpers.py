@@ -34,7 +34,7 @@ def get_args():
     # group Mocap Module
     mocap_group = parser.add_argument_group("Mocap", description="Arguments for Mocap Setting.")
     mocap_group.add_argument('--MocapModule', type=str, default='ROMP_MocapModule', help='The mocap module to use.')
-    mocap_group.add_argument('--viz_mocap', action='store_true', help='Whether to visualize the mocap module output.')
+    mocap_group.add_argument('--viz_mocap', action='store_false', help='Whether to visualize the mocap module output.')
     mocap_group.add_argument('--save_mocap', action='store_true', help='Whether to save the mocap module output.')
    
 
@@ -50,6 +50,11 @@ def get_args():
     args = parser.parse_args()
     if not torch.cuda.is_available():
         args.device = -1
+
+    
+    if args.viz_retgt:
+        args.viz_mocap = False
+        args.viz_stream = False
     if args.viz_mocap:
         args.viz_stream = False
     return args
@@ -130,8 +135,10 @@ def parse_RetgtModule_cfg(args):
 
 
 
-
 def signal_handler(sig, frame):
+    """Handle termination signals (e.g., Ctrl+C)."""
     print("Terminating program...")
+    if 'retgt_module' in globals() and retgt_module is not None:
+        retgt_module.close()
     cv2.destroyAllWindows()
     sys.exit(0)

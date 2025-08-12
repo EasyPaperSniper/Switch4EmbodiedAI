@@ -89,10 +89,10 @@ class GMR_RetgtModule():
         
         # adjust the camera height
         if self.retgt_module is None:
-            self.mocap_delta_pos = smplx_data["transl"][0]
-            self.mocap_delta_pos = smplx_data["transl"][0,2] - human_height * 0.5
+            self.mocap_delta_pos = smplx_data["transl"][0].copy()
+            self.mocap_delta_pos[2] = smplx_data["transl"][0,2] - human_height * 0.5 -0.05
 
-        smplx_data["transl"][:,2] -= self.mocap_delta_pos
+        smplx_data["transl"] -= self.mocap_delta_pos
 
         smplx_output = body_model(
             betas=torch.tensor(smplx_data["smpl_betas"]).float().view(1, -1), # (16,)

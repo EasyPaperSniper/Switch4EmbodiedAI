@@ -55,7 +55,7 @@ class ROMP_MocapModule(MocapModule):
             rendering_cfgs = {'mesh_color':'identity', 'items': self.mocap_module.visualize_items, 'renderer': self.mocap_module.settings.renderer} # 'identity'
             outputs = rendering_romp_bev_results(self.mocap_module.renderer, outputs, image, rendering_cfgs)
         if self.mocap_module.settings.show:
-            cv2.imshow('rendered', outputs['rendered_image'][:,image.shape[1]:])
+            cv2.imshow('rendered', outputs['rendered_image'][:,])
             wait_func(self.mocap_module.settings.mode)
 
         return self.add_amassFrame(convert_tensor2numpy(outputs))
@@ -120,7 +120,7 @@ def test_MocapModule(args):
                 print(f"Measured FPS: {100/elapsed_time:.2f}")
 
         # Exit on 'q' key press
-        if cv2.waitKey(1) & 0xFF == ord('q'): #or stream_module.stopped:
+        if cv2.waitKey(1) & 0xFF == 27: #or stream_module.stopped:
             break
 
     cv2.destroyAllWindows()

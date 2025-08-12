@@ -85,7 +85,7 @@ def test_StreamModule(stream_module_cfg):
             break
 
         # Exit on 'q' key press
-        if cv2.waitKey(1) & 0xFF == ord('q') or Stream_module.stopped:
+        if cv2.waitKey(1) &  0xFF == 27 or Stream_module.stopped:
             break
 
 

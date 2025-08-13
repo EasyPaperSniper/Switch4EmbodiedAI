@@ -34,7 +34,7 @@ def get_args():
     # group Mocap Module
     mocap_group = parser.add_argument_group("Mocap", description="Arguments for Mocap Setting.")
     mocap_group.add_argument('--MocapModule', type=str, default='ROMP_MocapModule', help='The mocap module to use.')
-    mocap_group.add_argument('--viz_mocap', action='store_false', help='Whether to visualize the mocap module output.')
+    mocap_group.add_argument('--viz_mocap', action='store_true', help='Whether to visualize the mocap module output.')
     mocap_group.add_argument('--save_mocap', action='store_true', help='Whether to save the mocap module output.')
    
 
@@ -52,11 +52,11 @@ def get_args():
         args.device = -1
 
     
-    if args.viz_retgt:
-        args.viz_mocap = False
-        args.viz_stream = False
-    if args.viz_mocap:
-        args.viz_stream = False
+    # if args.viz_retgt:
+    #     args.viz_mocap = False
+    #     args.viz_stream = False
+    # if args.viz_mocap:
+    #     args.viz_stream = False
     return args
 
 
@@ -132,22 +132,7 @@ def parse_RetgtModule_cfg(args):
     return retgt_cfg
 
 
-def build_modules(args):
-    from Switch4EmbodiedAI.modules import SimpleStreamModule, GMR_RetgtModule, ROMP_MocapModule
 
-    stream_module_cfg = parse_StreamModule_cfg(args)
-    stream_module_class = eval(args.StreamModule)
-    stream_module = stream_module_class(stream_module_cfg)
-
-    mocap_module_cfg = parse_MocapModule_cfg(args)
-    mocap_module_class = eval(args.MocapModule)
-    mocap_module = mocap_module_class(mocap_module_cfg)
-
-    retgt_module_cfg = parse_RetgtModule_cfg(args)
-    retgt_module_class = eval(args.RetgtModule)
-    retgt_module = retgt_module_class(retgt_module_cfg)
-
-    return stream_module, mocap_module, retgt_module
 
 
 def signal_handler(sig, frame):

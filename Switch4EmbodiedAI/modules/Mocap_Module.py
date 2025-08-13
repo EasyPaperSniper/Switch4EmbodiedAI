@@ -23,14 +23,23 @@ class MocapModule(nn.Module):
         super().__init__()
         self.config = config
         self.mocap_data = None
+        self.stopped = False
+        self.outputs = None
 
     def forward(self, file_path):
         # Load mocap data from the specified file path
         pass
 
-    def padd_amassFrame(self, output):
+    def add_amassFrame(self, output):
         # Process the loaded mocap data
         pass
+
+    def close(self):
+        self.stopped = True
+
+
+    def start(self):
+        self.stopped = False
 
 
 
@@ -38,6 +47,7 @@ class ROMP_MocapModule(MocapModule):
     def __init__(self, config):
         super().__init__(config)
         self.mocap_module = ROMP(config)
+        self.outputs = None
 
     def forward(self, image, signal_ID=0, **kwargs):
         outputs, image_pad_info = self.mocap_module.single_image_forward(image)
@@ -54,10 +64,8 @@ class ROMP_MocapModule(MocapModule):
         if self.mocap_module.settings.render_mesh:
             rendering_cfgs = {'mesh_color':'identity', 'items': self.mocap_module.visualize_items, 'renderer': self.mocap_module.settings.renderer} # 'identity'
             outputs = rendering_romp_bev_results(self.mocap_module.renderer, outputs, image, rendering_cfgs)
-        if self.mocap_module.settings.show:
-            cv2.imshow('rendered', outputs['rendered_image'][:,])
-            wait_func(self.mocap_module.settings.mode)
-
+        
+        self.outputs = outputs.copy()
         return self.add_amassFrame(convert_tensor2numpy(outputs))
     
 
@@ -91,6 +99,13 @@ class ROMP_MocapModule(MocapModule):
         outputs['transl'] = cam_trans_amass
         return outputs
     
+
+    def viz_outputs(self):
+        if self.mocap_module.settings.show:
+            cv2.imshow('rendered', self.outputs['rendered_image'])
+
+
+
     # TODO: add mirror version for facing monitor play
 
 
@@ -109,6 +124,7 @@ def test_MocapModule(args):
 
     while True:        
         mocap_reuslt = mocap_module(frame)
+        mocap_module.viz_outputs()
 
         if mocap_reuslt is not None:
             if frame_count ==0:
@@ -119,7 +135,7 @@ def test_MocapModule(args):
                 elapsed_time = end_time - start_time
                 print(f"Measured FPS: {100/elapsed_time:.2f}")
 
-        # Exit on 'q' key press
+        # Exit on 'esc' key press
         if cv2.waitKey(1) & 0xFF == 27: #or stream_module.stopped:
             break
 

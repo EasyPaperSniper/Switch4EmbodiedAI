@@ -1,3 +1,3 @@
 from Switch4EmbodiedAI.modules.Stream_Module import SimpleStreamModule
-from Mocap_Module import ROMP_MocapModule
+from Switch4EmbodiedAI.modules.Mocap_Module import ROMP_MocapModule
 from Switch4EmbodiedAI.modules.Retgt_Module import GMR_RetgtModule

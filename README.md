@@ -65,3 +65,6 @@ a. Meta data from this link. Please unzip it, then we get a folder named "smpl_m
 git submodule init
 git submodule update
 git submodule update --init --recursive -->
+
+
+There seems to be bug on using mjpython on Mac due to conflict with cv2

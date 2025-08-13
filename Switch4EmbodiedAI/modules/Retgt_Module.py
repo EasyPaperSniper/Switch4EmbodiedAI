@@ -26,15 +26,29 @@ class GMR_RetgtModule():
         
         self.config = config
         self.retgt_module = None
+        self.robot_motion_viewer = None
 
-        if self.config.viz_retgt:
-            self.robot_motion_viewer = RobotMotionViewer(robot_type=config.robot,
-                                                motion_fps=config.tgt_fps,
-                                                transparent_robot=0,
-                                                record_video=config.record_video,
-                                                video_path=config.save_path + f"/{config.robot}.mp4",)
-        else:
-            self.robot_motion_viewer = None
+
+    def reset(self):
+        self.retgt_module = None
+        self.robot_motion_viewer = None
+
+
+
+    def init_module(self, actual_human_height):
+        if self.retgt_module is None:
+            self.retgt_module = GMR(
+                src_human="smplx",
+                tgt_robot=self.config.robot,
+                actual_human_height=actual_human_height,
+                )
+            if self.config.viz_retgt:
+                self.robot_motion_viewer = RobotMotionViewer(robot_type=self.config.robot,
+                                                    motion_fps=self.config.tgt_fps,
+                                                    transparent_robot=0,
+                                                    record_video=self.config.record_video,
+                                                    video_path=self.config.save_path + f"/{self.config.robot}.mp4",)
+
         
 
     def retarget(self, input_data):
@@ -42,16 +56,11 @@ class GMR_RetgtModule():
         smplx_data, body_model, smplx_output, actual_human_height = self.load_smplx_file(
             input_data, self.config.smplx_file)
         
-        smplx_data_frames = self.parse_smplx_output(smplx_output ,body_model)
 
-        if self.retgt_module is None:
-            self.retgt_module = GMR(
-                src_human="smplx",
-                tgt_robot=self.config.robot,
-                actual_human_height=actual_human_height,
-                )
-            
+        smplx_data_frames = self.parse_smplx_output(smplx_output ,body_model)
+        self.init_module(actual_human_height)
         qpos = self.retgt_module.retarget(smplx_data_frames)
+
 
 
         if self.config.viz_retgt:
@@ -64,6 +73,7 @@ class GMR_RetgtModule():
                 show_human_body_name=False,
                 rate_limit=self.config.rate_limit,
             )
+        
         return qpos
     
     def close(self):
@@ -71,6 +81,9 @@ class GMR_RetgtModule():
         if self.robot_motion_viewer is not None:
             self.robot_motion_viewer.close()
             print("Robot motion viewer closed.")
+        self.reset()
+
+
     
 
     def load_smplx_file(self, smplx_data, smplx_body_model_path):
@@ -93,10 +106,9 @@ class GMR_RetgtModule():
             self.mocap_delta_pos[2] = smplx_data["transl"][0,2] - human_height * 0.5 -0.05
 
         smplx_data["transl"] -= self.mocap_delta_pos
-        print(smplx_data["smpl_betas"])
 
         smplx_output = body_model(
-            # betas=torch.tensor(smplx_data["smpl_betas"]).float().view(1, -1), # (16,)
+            betas=torch.tensor(smplx_data["smpl_betas"]).float().view(1, -1), # (16,)
             global_orient=torch.tensor(smplx_data["global_orient_amass"]).float(), # (N, 3)
             body_pose=torch.tensor(smplx_data["body_pose"][:,:63]).float(), # (N, 63)
             transl=torch.tensor(smplx_data["transl"]).float(), # (N, 3)

@@ -12,10 +12,10 @@ class ROMP_MocapModuleConfig(BaseConfig):
     onnx = False    # Whether to use ONNX for acceleration.
     temporal_optimize = False   # Whether to use OneEuro filter to smooth the results
     center_thresh = 0.25    # The confidence threshold of positive detection in 2D human body center heatmap.
-    show_largest = False  # Whether to show the largest person only
+    show_largest = True # Whether to show the largest person only
     smooth_coeff = 3.0  # The smoothness coeff of OneEuro filter, the smaller, the smoother.
-    calc_smpl = False  # Whether to calculate the smpl mesh from estimated SMPL parameters
-    render_mesh = False # Whether to render the estimated 3D mesh mesh to image
+    calc_smpl = True  # Whether to calculate the smpl mesh from estimated SMPL parameters
+    render_mesh = True # Whether to render the estimated 3D mesh mesh to image
     renderer = 'sim3dr' # Choose the renderer for visualizaiton: pyrender (great but slow), sim3dr (fine but fast)
     show = False # Whether to show the rendered results
     show_items = 'mesh' # The items to visualized, including mesh,pj2d,j3d,mesh_bird_view,mesh_side_view,center_conf. splited with ,

@@ -47,13 +47,12 @@ class ROMP_MocapModule(MocapModule):
     def __init__(self, config):
         super().__init__(config)
         self.mocap_module = ROMP(config)
-        self.outputs = None
+        self.outputs = {}
 
     def forward(self, image, signal_ID=0, **kwargs):
         outputs, image_pad_info = self.mocap_module.single_image_forward(image)
+        self.outputs['rendered_image'] = image
         if outputs is None:
-            if self.mocap_module.settings.show:
-                cv2.imshow('rendered', image)
             return None
         if self.mocap_module.settings.temporal_optimize:
             outputs = self.mocap_module.temporal_optimization(outputs, signal_ID)
@@ -64,8 +63,7 @@ class ROMP_MocapModule(MocapModule):
         if self.mocap_module.settings.render_mesh:
             rendering_cfgs = {'mesh_color':'identity', 'items': self.mocap_module.visualize_items, 'renderer': self.mocap_module.settings.renderer} # 'identity'
             outputs = rendering_romp_bev_results(self.mocap_module.renderer, outputs, image, rendering_cfgs)
-        
-        self.outputs = outputs.copy()
+        self.outputs = outputs
         return self.add_amassFrame(convert_tensor2numpy(outputs))
     
 

@@ -95,10 +95,12 @@ class Switch2Robot_Module():
             if user_input.strip().lower() == 'a':
                 print('========= Start Viz Streaming ==========')
                 self.stream_module.config.viz_stream = True
+                self.config.viz_stream = True
             if user_input.strip().lower() == 'w':
                 print('========= Start Motion Trackng ==========')
                 cv2.destroyAllWindows()
                 self.run_mocap = True
+                self.config.viz_mocap = True
                 self.mocap_module.settings.show = True
             if user_input.strip().lower() == 'e':
                 print('========= Start Motion Retargeting ==========')
@@ -107,7 +109,8 @@ class Switch2Robot_Module():
                 self.run_retgt = True
             if user_input.strip().lower() == 's':
                 print('========= Stop Motion Trackng ==========')
-                self.mocap_module.settings.show = True
+                self.mocap_module.settings.show = False
+                self.config.viz_mocap = False
                 self.run_mocap = False
                 self.run_retgt = False
                 cv2.destroyAllWindows()

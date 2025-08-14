@@ -50,9 +50,9 @@ class Switch2Robot_Module():
 
 
     def view_Switch(self,):
-        if (self.run_mocap) and self.config.viz_mocap and (self.mocap_module.outputs is not None):
+        if (self.run_mocap) and self.mocap_module.settings.show and (self.mocap_module.outputs is not None):
             self.mocap_module.viz_outputs()
-        elif  self.config.viz_stream:
+        elif  self.stream_module.config.viz_stream:
             self.stream_module.viz_frame()
         cv2.waitKey(1)
 
@@ -99,7 +99,7 @@ class Switch2Robot_Module():
                 print('========= Start Motion Trackng ==========')
                 cv2.destroyAllWindows()
                 self.run_mocap = True
-                self.config.viz_mocap = True
+                self.mocap_module.settings.show = True
             if user_input.strip().lower() == 'e':
                 print('========= Start Motion Retargeting ==========')
                 cv2.destroyAllWindows()
@@ -107,7 +107,7 @@ class Switch2Robot_Module():
                 self.run_retgt = True
             if user_input.strip().lower() == 's':
                 print('========= Stop Motion Trackng ==========')
-                self.stream_module.config.viz_stream = True
+                self.mocap_module.settings.show = True
                 self.run_mocap = False
                 self.run_retgt = False
                 cv2.destroyAllWindows()

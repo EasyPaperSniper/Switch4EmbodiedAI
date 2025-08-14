@@ -17,7 +17,7 @@ def get_args():
     parser = argparse.ArgumentParser(description="Switch4EAI")
     
     # group general
-    parser.add_argument("--device", type=int, default=0, help="GPU id to use, -1 for CPU.")
+    parser.add_argument("--device", type=int, default=-1, help="GPU id to use, -1 for CPU.")
     parser.add_argument("--capture_card_index", type=int, default=None, help="Index of the capture card.")
     parser.add_argument("--save_path", type=str, default=RESULT_DIR, help = 'Path to save the results')
 

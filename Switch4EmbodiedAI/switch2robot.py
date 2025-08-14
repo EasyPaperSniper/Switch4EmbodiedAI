@@ -64,8 +64,8 @@ class Switch2Robot_Module():
         self.retgt_module.close()
         self.stream_module.close()
         cv2.destroyAllWindows()
-        self.userCtrl_thread.join()
-        self.switchView_thread.join()
+
+
 
 
 

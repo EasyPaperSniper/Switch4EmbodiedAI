@@ -42,7 +42,7 @@ def get_args():
     retargeting_group = parser.add_argument_group("Retargeting", description="Arguments for Retargeting Setting.")
     retargeting_group.add_argument('--RetgtModule', type=str, default='GMR_RetgtModule', help='The retargeting module to use.')
     retargeting_group.add_argument('--robot', type=str, default='unitree_g1', help='The robot to use for retargeting.')
-    retargeting_group.add_argument('--viz_retgt', action='store_true', help='Whether to visualize the retargeted motion.')
+    retargeting_group.add_argument('--viz_retgt', action='store_false', help='Whether to visualize the retargeted motion.')
     retargeting_group.add_argument('--save_retgt', action='store_true', help='Whether to save the retargeted motion.')
     retargeting_group.add_argument('--record_retgt', action='store_true', help='Whether to record the video of the retargeted motion.')
 

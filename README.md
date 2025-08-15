@@ -68,3 +68,5 @@ git submodule update --init --recursive -->
 
 
 There seems to be bug on using mjpython on Mac due to conflict with cv2
+
+https://github.com/zixuan417/humanoid-general-motion-tracking.git

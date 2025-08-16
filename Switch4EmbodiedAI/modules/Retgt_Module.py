@@ -18,15 +18,19 @@ from rich import print
 from Switch4EmbodiedAI.utils.helpers import get_args, parse_StreamModule_cfg, parse_MocapModule_cfg, parse_RetgtModule_cfg
 from Switch4EmbodiedAI.modules.Mocap_Module import *
 from Switch4EmbodiedAI.utils.helpers import signal_handler
+from Switch4EmbodiedAI.utils.qpos_smoother import QposStreamSmoother
 
 
 
 class GMR_RetgtModule():
+    # Only support one character retargeting now!!!
+
     def __init__(self, config):
         
         self.config = config
         self.retgt_module = None
         self.robot_motion_viewer = None
+        self.smoother = QposStreamSmoother(window_size=5)
 
         self.body_model = smplx.create(
             self.config.smplx_file,
@@ -43,27 +47,31 @@ class GMR_RetgtModule():
 
 
     def init_module(self, actual_human_height):
-        if self.retgt_module is None:
-            self.retgt_module = GMR(
-                src_human="smplx",
-                tgt_robot=self.config.robot,
-                actual_human_height=actual_human_height,
-                )
-            if self.config.viz_retgt:
-                self.robot_motion_viewer = RobotMotionViewer(robot_type=self.config.robot,
-                                                    motion_fps=self.config.tgt_fps,
-                                                    transparent_robot=0,
-                                                    record_video=self.config.record_video,
-                                                    video_path=self.config.save_path + f"/{self.config.robot}.mp4",)
+        self.smoother.reset()
+        self.retgt_module = GMR(
+            src_human="smplx",
+            tgt_robot=self.config.robot,
+            actual_human_height=actual_human_height,
+            )
+        if self.config.viz_retgt:
+            self.robot_motion_viewer = RobotMotionViewer(robot_type=self.config.robot,
+                                                motion_fps=self.config.tgt_fps,
+                                                transparent_robot=0,
+                                                record_video=self.config.record_video,
+                                                video_path=self.config.save_path + f"/{self.config.robot}.mp4",)
+        
 
         
 
-    def retarget(self, input_data):
+    def retarget(self, input_data, smooth_output=True):
         # retarget the input data to the robot motion
         smplx_output, actual_human_height = self.load_smplx_file(input_data)
         smplx_data_frames = self.parse_smplx_output(smplx_output ,self.body_model)
-        self.init_module(actual_human_height)
+        if self.retgt_module is None:
+            self.init_module(actual_human_height)
         qpos = self.retgt_module.retarget(smplx_data_frames)
+        if smooth_output:
+            qpos = self.smoother.add(qpos)
 
 
 
@@ -91,28 +99,32 @@ class GMR_RetgtModule():
 
     def load_smplx_file(self, smplx_data):
         num_frames = smplx_data["body_pose"].shape[0]
-        if len(smplx_data["smpl_betas"].shape)==1:
-            human_height = 1.66 + 0.1 * smplx_data["smpl_betas"][0]
-        else:
-            human_height = 1.66 + 0.1 * smplx_data["smpl_betas"][0, 0]
+        # if len(smplx_data["smpl_betas"].shape)==1:
+        #     human_height = 1.66 + 0.1 * smplx_data["smpl_betas"][0]
+        # else:
+        #     human_height = 1.66 + 0.1 * smplx_data["smpl_betas"][0, 0]
         
-        # adjust the camera height
-        if self.retgt_module is None:
-            self.mocap_delta_pos = smplx_data["transl"][0].copy()
-            self.mocap_delta_pos[2] = smplx_data["transl"][0,2] - human_height * 0.5 -0.05
-        smplx_data["transl"] -= self.mocap_delta_pos
+        # # adjust the camera height
+        # if self.retgt_module is None:
+        #     self.mocap_delta_pos = smplx_data["transl"][0].copy()
+        #     self.mocap_delta_pos[2] = smplx_data["transl"][0,2] - human_height * 0.5 -0.05
+        # smplx_data["transl"] -= self.mocap_delta_pos
+
+        # remove root translation
+        smplx_data["transl"] = [[0,0,0.9]]
+        human_height = 1.7
 
 
         smplx_output = self.body_model(
             # betas=torch.tensor(smplx_data["smpl_betas"]).float().view(1, -1), # (16,)
-            global_orient=torch.tensor(smplx_data["global_orient_amass"]).float(), # (N, 3)
-            body_pose=torch.tensor(smplx_data["body_pose"][:,:63]).float(), # (N, 63)
-            transl=torch.tensor(smplx_data["transl"]).float(), # (N, 3)
-            left_hand_pose=torch.zeros(num_frames, 45).float(),
-            right_hand_pose=torch.zeros(num_frames, 45).float(),
-            jaw_pose=torch.zeros(num_frames, 3).float(),
-            leye_pose=torch.zeros(num_frames, 3).float(),
-            reye_pose=torch.zeros(num_frames, 3).float(),
+            global_orient=torch.tensor(smplx_data["global_orient_amass"][:1]).float(), # (N, 3)
+            body_pose=torch.tensor(smplx_data["body_pose"][:1,:63]).float(), # (N, 63)
+            transl=torch.tensor(smplx_data["transl"][:1]).float(), # (N, 3)
+            left_hand_pose=torch.zeros(1, 45).float(),
+            right_hand_pose=torch.zeros(1, 45).float(),
+            jaw_pose=torch.zeros(1, 3).float(),
+            leye_pose=torch.zeros(1, 3).float(),
+            reye_pose=torch.zeros(1, 3).float(),
             # expression=torch.zeros(num_frames, 10).float(),
             return_full_pose=True,
         )
@@ -146,6 +158,99 @@ class GMR_RetgtModule():
 
         return result
 
+
+
+def smooth_qpos(qpos_seq: np.ndarray, window_size: int = 7) -> np.ndarray:
+    """
+    Smooth a sequence of MuJoCo-style qpos vectors while respecting quaternion math.
+
+    Args:
+        qpos_seq: (T, D) array. Each row is a qpos where:
+                  qpos[0:3]  -> root position (x, y, z)
+                  qpos[3:7]  -> root orientation quaternion (w, x, y, z) or (x, y, z, w) if you prefer—set order below
+                  qpos[7:]   -> remaining DOF positions
+        window_size: odd integer >= 3 specifying the smoothing window.
+
+    Returns:
+        (T, D) array of smoothed qpos.
+    """
+    assert qpos_seq.ndim == 2, "qpos_seq must be (T, D)"
+    T, D = qpos_seq.shape
+    assert D >= 7, "qpos must have at least 7 elements (pos3 + quat4)"
+    if window_size < 3:
+        return qpos_seq.copy()
+    if window_size % 2 == 0:
+        window_size += 1  # make it odd for symmetric window
+
+    # ---- Helpers ----
+    def _moving_average(x, w):
+        # Pad with edge values to keep length and avoid lag at boundaries
+        pad = w // 2
+        xpad = np.pad(x, ((pad, pad), (0, 0)), mode='edge') if x.ndim == 2 else np.pad(x, (pad, pad), mode='edge')
+        kernel = np.ones(w, dtype=x.dtype) / float(w)
+        if x.ndim == 1:
+            return np.convolve(xpad, kernel, mode='valid')
+        else:
+            # Convolve each column independently
+            out = np.empty_like(x, dtype=np.float64)
+            for i in range(x.shape[1]):
+                out[:, i] = np.convolve(xpad[:, i], kernel, mode='valid')
+            return out
+
+    def _normalize_quat(q):
+        # Normalize last axis
+        norm = np.linalg.norm(q, axis=-1, keepdims=True) + 1e-12
+        return q / norm
+
+    def _enforce_quat_sign_continuity(quats):
+        """
+        Ensures consecutive quaternions lie on the same hemisphere:
+        if dot(q_t, q_{t-1}) < 0 then flip q_t.
+        """
+        qs = quats.copy()
+        for t in range(1, qs.shape[0]):
+            if np.dot(qs[t], qs[t - 1]) < 0.0:
+                qs[t] = -qs[t]
+        return qs
+
+    def _smooth_quat_windowed(quats, w):
+        """
+        Uniform windowed average of quaternions with sign continuity and renorm.
+        For small windows and already-smooth data this works well; for highly
+        curved orientation trajectories, consider SLERP-based splines.
+        """
+        pad = w // 2
+        qs = _enforce_quat_sign_continuity(_normalize_quat(quats))
+        # Pad with edge values (already sign-corrected)
+        qpad = np.pad(qs, ((pad, pad), (0, 0)), mode='edge').astype(np.float64)
+        out = np.empty_like(qs, dtype=np.float64)
+        for t in range(qs.shape[0]):
+            qwin = qpad[t:t + w]  # (w, 4)
+            # Re-align signs within the window to the center frame to avoid cancellation
+            center = qwin[w // 2]
+            aligned = qwin.copy()
+            dots = (aligned @ center)
+            aligned[dots < 0.0] *= -1.0
+            qavg = aligned.mean(axis=0)
+            out[t] = qavg
+        return _normalize_quat(out)
+
+    # ---- Split fields ----
+    root_pos = qpos_seq[:, 0:3]
+    root_quat = qpos_seq[:, 3:7]
+    dof_pos  = qpos_seq[:, 7:] if D > 7 else None
+
+    # ---- Smooth each part ----
+    root_pos_s = _moving_average(root_pos, window_size)
+    root_quat_s = _smooth_quat_windowed(root_quat, window_size)
+    if dof_pos is not None and dof_pos.shape[1] > 0:
+        dof_pos_s = _moving_average(dof_pos, window_size)
+        qpos_smoothed = np.concatenate([root_pos_s, root_quat_s, dof_pos_s], axis=1)
+    else:
+        qpos_smoothed = np.concatenate([root_pos_s, root_quat_s], axis=1)
+
+    # Preserve original dtype
+    return qpos_smoothed.astype(qpos_seq.dtype)
 
 
 def test_RetgtModule(args):

@@ -66,6 +66,7 @@ class SimpleStreamModule:
 
 
     def process_frame(self, frame):
+        
         return frame
     
     

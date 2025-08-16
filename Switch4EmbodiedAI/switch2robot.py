@@ -69,7 +69,7 @@ class Switch2Robot_Module():
 
 
 
-    def forward(self):
+    def forward(self, smooth_output = True):
         stream_frame, mocap_output, retgt_output = None, None, None
         stream_frame = self.stream_module.read()
         if self.run_mocap:
@@ -78,7 +78,7 @@ class Switch2Robot_Module():
         if self.retgt_module.robot_motion_viewer is None:
             self.view_Switch()
         if self.run_retgt and mocap_output:
-            retgt_output = self.retgt_module.retarget(mocap_output)
+            retgt_output = self.retgt_module.retarget(mocap_output, smooth_output)
         
             
         return stream_frame, mocap_output, retgt_output

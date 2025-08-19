@@ -2,7 +2,9 @@ import argparse
 import pathlib
 import os
 import time
+import datetime
 import signal
+import threading
 
 import numpy as np
 import smplx
@@ -30,7 +32,12 @@ class GMR_RetgtModule():
         self.config = config
         self.retgt_module = None
         self.robot_motion_viewer = None
-        self.smoother = QposStreamSmoother(window_size=5)
+        self.smoother = QposStreamSmoother(window_size=10)
+        # Decoupled stepping state
+        self._latest_qpos = None
+        self._qpos_lock = threading.Lock()
+        self._step_thread = None
+        self._step_stop = threading.Event()
 
         self.body_model = smplx.create(
             self.config.smplx_file,
@@ -39,10 +46,15 @@ class GMR_RetgtModule():
             use_pca=False,
         )
 
+        self.save_retgt_buffer = []
+
 
     def reset(self):
         self.retgt_module = None
         self.robot_motion_viewer = None
+        self._latest_qpos = None
+        self._step_thread = None
+        self._step_stop = threading.Event()
 
 
 
@@ -53,12 +65,11 @@ class GMR_RetgtModule():
             tgt_robot=self.config.robot,
             actual_human_height=actual_human_height,
             )
-        if self.config.viz_retgt:
-            self.robot_motion_viewer = RobotMotionViewer(robot_type=self.config.robot,
-                                                motion_fps=self.config.tgt_fps,
-                                                transparent_robot=0,
-                                                record_video=self.config.record_video,
-                                                video_path=self.config.save_path + f"/{self.config.robot}.mp4",)
+        # Start decoupled stepping thread (viewer will be created inside that thread)
+        if self._step_thread is None and self.config.viz_retgt:
+            self._step_stop.clear()
+            self._step_thread = threading.Thread(target=self._stepper_loop, daemon=True)
+            self._step_thread.start()
         
 
         
@@ -72,27 +83,49 @@ class GMR_RetgtModule():
         qpos = self.retgt_module.retarget(smplx_data_frames)
         if smooth_output:
             qpos = self.smoother.add(qpos)
-
-
-
-        if self.config.viz_retgt:
-            self.robot_motion_viewer.step(
-                root_pos=qpos[:3],
-                root_rot=qpos[3:7],
-                dof_pos=qpos[7:],
-                human_motion_data=self.retgt_module.scaled_human_data,
-                human_pos_offset=np.array([0.0, 0.0, 0.0]),
-                show_human_body_name=False,
-                rate_limit=self.config.rate_limit,
-            )
+        # Publish latest qpos for decoupled stepping
+        with self._qpos_lock:
+            self._latest_qpos = qpos.copy()
         
         return qpos
     
     def close(self):
         """Close the robot motion viewer if it exists."""
+        # Stop stepper thread first
+        if self._step_thread is not None:
+            self._step_stop.set()
+            try:
+                self._step_thread.join(timeout=2.0)
+            except Exception:
+                pass
+            self._step_thread = None
+
         if self.robot_motion_viewer is not None:
             self.robot_motion_viewer.close()
             print("Robot motion viewer closed.")
+        # Save retargeted trajectory if requested
+        try:
+            if getattr(self.config, 'save_retgt', False) and len(self.save_retgt_buffer) > 0:
+                buffer_arr = np.asarray(self.save_retgt_buffer)
+                root_pos = buffer_arr[:, :3]
+                root_rot = buffer_arr[:, 3:7]  # already converted to xyzw when stored
+                dof_pos = buffer_arr[:, 7:]
+                motion_data = {
+                    'root_pos': root_pos,
+                    'root_rot': root_rot,
+                    'dof_pos': dof_pos,
+                }
+                ts = datetime.datetime.now().strftime('%m-%d_%H-%M')
+                save_dir = self.config.save_path if self.config.save_path is not None else '.'
+                try:
+                    os.makedirs(save_dir, exist_ok=True)
+                except Exception:
+                    pass
+                file_path = os.path.join(save_dir, f"{self.config.robot}_{ts}.npz")
+                np.savez(file_path, **motion_data)
+                print(f"Saved retargeted trajectory to {file_path}, {buffer_arr.shape[0]} frames")
+        except Exception as e:
+            print(f"Warning: failed to save retargeted trajectory: {e}")
         self.reset()
 
 
@@ -157,6 +190,60 @@ class GMR_RetgtModule():
             result[joint_name] = (single_joints[i], rot.as_quat(scalar_first=True))
 
         return result
+
+    def _stepper_loop(self):
+        """Run viewer stepping at fixed target FPS using the latest qpos."""
+        target_fps = max(1, int(self.config.tgt_fps))
+        period = 1.0 / float(target_fps)
+        next_ts = time.perf_counter()
+        while not self._step_stop.is_set():
+            # Lazy-create viewer in this thread to keep GL context/thread affinity
+            if self.robot_motion_viewer is None and self.config.viz_retgt:
+                try:
+                    self.robot_motion_viewer = RobotMotionViewer(
+                        robot_type=self.config.robot,
+                        motion_fps=self.config.tgt_fps,
+                        transparent_robot=0,
+                        record_video=self.config.record_video,
+                        video_path=self.config.save_path + f"/{self.config.robot}.mp4",
+                    )
+                except Exception:
+                    # If viewer creation fails, retry next tick
+                    pass
+            start = time.perf_counter()
+            # Wait until we have a qpos
+            qpos = None
+            with self._qpos_lock:
+                if self._latest_qpos is not None:
+                    qpos = self._latest_qpos.copy()
+            if qpos is not None and self.robot_motion_viewer is not None:
+                try:
+                    self.robot_motion_viewer.step(
+                        root_pos=qpos[:3],
+                        root_rot=qpos[3:7],
+                        dof_pos=qpos[7:],
+                        human_motion_data=(self.retgt_module.scaled_human_data if self.retgt_module is not None else None),
+                        human_pos_offset=np.array([0.0, 0.0, 0.0]),
+                        show_human_body_name=False,
+                        rate_limit=False,  # external pacing
+                    )
+
+                    if self.config.save_retgt:
+                        qpos[3:7] = qpos[3:7][[1,2,3,0]]
+                        self.save_retgt_buffer.append(qpos.copy())
+
+
+                except Exception:
+                    # Keep loop alive even if a frame fails
+                    pass
+            # sleep to maintain rate
+            next_ts += period
+            delay = next_ts - time.perf_counter()
+            if delay > 0:
+                time.sleep(delay)
+            else:
+                # if we're behind, skip sleep and realign
+                next_ts = time.perf_counter()
 
 
 

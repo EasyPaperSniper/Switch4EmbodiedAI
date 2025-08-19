@@ -17,7 +17,7 @@ def get_args():
     parser = argparse.ArgumentParser(description="Switch4EAI")
     
     # group general
-    parser.add_argument("--device", type=int, default=-1, help="GPU id to use, -1 for CPU.")
+    parser.add_argument("--device", type=int, default=0, help="GPU id to use, -1 for CPU.")
     parser.add_argument("--capture_card_index", type=int, default=None, help="Index of the capture card.")
     parser.add_argument("--save_path", type=str, default=RESULT_DIR, help = 'Path to save the results')
 
@@ -44,7 +44,7 @@ def get_args():
     retargeting_group.add_argument('--robot', type=str, default='unitree_g1', help='The robot to use for retargeting.')
     retargeting_group.add_argument('--viz_retgt', action='store_false', help='Whether to visualize the retargeted motion.')
     retargeting_group.add_argument('--save_retgt', action='store_true', help='Whether to save the retargeted motion.')
-    retargeting_group.add_argument('--record_retgt', action='store_true', help='Whether to record the video of the retargeted motion.')
+    retargeting_group.add_argument('--record_retgt', action='store_false', help='Whether to record the video of the retargeted motion.')
 
 
     args = parser.parse_args()

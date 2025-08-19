@@ -62,6 +62,12 @@ class Switch2Robot_Module():
     def close(self):
         self.stopped = True
         self.retgt_module.close()
+        # Ensure mocap resources (e.g., video writer) are flushed
+        if hasattr(self.mocap_module, 'close'):
+            try:
+                self.mocap_module.close()
+            except Exception:
+                pass
         self.stream_module.close()
         cv2.destroyAllWindows()
 

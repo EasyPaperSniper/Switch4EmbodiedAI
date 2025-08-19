@@ -1,6 +1,8 @@
 import cv2
 import time
 import signal
+import os
+import datetime
 
 import torch
 from torch import nn
@@ -48,6 +50,13 @@ class ROMP_MocapModule(MocapModule):
         super().__init__(config)
         self.mocap_module = ROMP(config)
         self.outputs = {}
+        self._video_writer = None
+        self._video_path = None
+        # Measured-FPS recording (default): buffer frames until we can estimate fps, then open writer
+        self._buffer_frames = []
+        self._buffer_start_time = None
+        self._fps_locked = False
+        self._measured_fps = None
 
     def forward(self, image, signal_ID=0, **kwargs):
         outputs, image_pad_info = self.mocap_module.single_image_forward(image)
@@ -64,6 +73,7 @@ class ROMP_MocapModule(MocapModule):
             rendering_cfgs = {'mesh_color':'identity', 'items': self.mocap_module.visualize_items, 'renderer': self.mocap_module.settings.renderer} # 'identity'
             outputs = rendering_romp_bev_results(self.mocap_module.renderer, outputs, image, rendering_cfgs)
         self.outputs = outputs
+        self._maybe_write_video()
         return self.add_amassFrame(convert_tensor2numpy(outputs))
     
 
@@ -102,6 +112,56 @@ class ROMP_MocapModule(MocapModule):
         if self.mocap_module.settings.show:
             cv2.imshow('rendered', self.outputs['rendered_image'])
 
+
+    def _maybe_write_video(self):
+        if not getattr(self.config, 'save_video', False):
+            return
+        if self.outputs is None or 'rendered_image' not in self.outputs:
+            return
+        frame = self.outputs['rendered_image']
+        if frame is None:
+            return
+        # If writer not yet initialized, buffer frames and measure FPS first
+        if self._video_writer is None:
+            if self._buffer_start_time is None:
+                self._buffer_start_time = time.time()
+            self._buffer_frames.append(frame.copy())
+            elapsed = time.time() - self._buffer_start_time
+            # Lock FPS after at least ~1s or 30 frames, whichever comes first
+            if (not self._fps_locked) and (elapsed >= 1.0 or len(self._buffer_frames) >= 30):
+                frames = len(self._buffer_frames)
+                self._measured_fps = max(1.0, frames / max(elapsed, 1e-6))
+                save_dir = self.config.save_path if self.config.save_path is not None else os.getcwd()
+                os.makedirs(save_dir, exist_ok=True)
+                timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+                self._video_path = os.path.join(save_dir, f'romp_{timestamp}.mp4')
+                height, width = frame.shape[:2]
+                self._video_writer = cv2.VideoWriter(
+                    self._video_path,
+                    cv2.VideoWriter_fourcc(*'mp4v'),
+                    float(self._measured_fps),
+                    (width, height),
+                )
+                for bf in self._buffer_frames:
+                    self._video_writer.write(bf)
+                self._buffer_frames.clear()
+                self._fps_locked = True
+            return
+
+        # Normal path: writer initialized, write 1:1 frames
+        self._video_writer.write(frame)
+
+    def close(self):
+        super().close()
+        if self._video_writer is not None:
+            self._video_writer.release()
+            self._video_writer = None
+            if self._video_path is not None:
+                print(f"ROMP video saved to {self._video_path}")
+        self._buffer_frames.clear()
+        self._buffer_start_time = None
+        self._fps_locked = False
+        self._measured_fps = None
 
 
     # TODO: add mirror version for facing monitor play

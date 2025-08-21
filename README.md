@@ -1,4 +1,5 @@
 Only support single character for now as we use ROMP
+Repo still under refacting
 
 ## Installation
 
@@ -56,17 +57,17 @@ Switch4EmbodiedAI/utils/smpl_model_data/
 ```
 
 
-<!-- +++++ cite from https://github.com/Arthur151/ROMP/blob/master/simple_romp/README.md +++++++
-a. Meta data from this link. Please unzip it, then we get a folder named "smpl_model_data" b. SMPL model file (SMPL_NEUTRAL.pkl) from "Download version 1.1.0 for Python 2.7 (female/male/neutral, 300 shape PCs)" in official website. Please unzip it and move the SMPL_NEUTRAL.pkl from extracted folder into the "smpl_model_data" folder.
+# Citation
 
+If you find our code useful, please consider citing our papers:
+```bibtex
+@article{li2025switch4eai,
+      title={Switch4EAI: Leveraging Console Game Platform for Benchmarking Robotic Athletics}, 
+      author={Tianyu Li and Jeonghwan Kim and Wontaek Kim and Donghoon Baek and Seungeun Rho and Sehoon Ha},
+      year= {2025},
+      journal= {arXiv preprint arXiv:2508.13444}
+}
+```
 
-
-
-git submodule init
-git submodule update
-git submodule update --init --recursive -->
-
-
-There seems to be bug on using mjpython on Mac due to conflict with cv2
-
-https://github.com/zixuan417/humanoid-general-motion-tracking.git
+# Acknowledgement
+Motion tracking module built upon [ROMP](https://github.com/Arthur151/ROMP). Motion retargeting module built upon [GMR](https://github.com/YanjieZe/GMR). Module tested on [GMT](https://gmt-humanoid.github.io/).

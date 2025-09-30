@@ -17,7 +17,7 @@ conda activate Switch4EAI
 ### Install simple_romp
 ```
 pip install --upgrade setuptools lap lapx
-pip install simple_romp=1.1.3
+pip install simple_romp==1.1.3
 ```
 
 ### Main Package

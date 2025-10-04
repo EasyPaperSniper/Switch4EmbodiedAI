@@ -11,3 +11,5 @@ simple_romp/.DS_Store
 **.Cpython-*
 **onnx**
 **SMPL**
+
+data/

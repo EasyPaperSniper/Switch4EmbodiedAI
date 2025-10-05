@@ -26,6 +26,14 @@ for infile, (start, end) in cuts.items():
     cmd = [
         "ffmpeg", "-i", infile_path,
         "-ss", start, "-to", end,
+        "-filter_complex",            # Apply video filters
+        # Split into two streams: [base] (original), [tmp] (for processing)
+        # Crop rectangular region (x=280,y=0,w=130,h=130) from [tmp]
+        # Apply boxblur=20 only to that region
+        # Overlay blurred region back on [base] at the same position
+        "[0:v]split=2[base][tmp];"
+        "[tmp]crop=w=170:h=110:x=280:y=0,boxblur=20[fg];"
+        "[base][fg]overlay=x=280:y=0:format=auto",
         "-c:v", "libx264",           # H.264 video codec
         "-preset", "medium",         # Balance between speed and compression
         "-crf", "23",                # Quality (lower = better, 18-28 is good range)

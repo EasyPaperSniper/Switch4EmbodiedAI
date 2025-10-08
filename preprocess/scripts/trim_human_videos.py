@@ -42,7 +42,7 @@ for infile, (start, end) in cuts.items():
         # Overlay blurred region back on [base] at the same position
         "[0:v]split=2[base][tmp];"
         "[tmp]crop=w=170:h=110:x=280:y=0,boxblur=20[fg];"
-        "[base][fg]overlay=x=280:y=0:format=auto",
+        "[base][fg]overlay=x=280:y=0:format=auto,fps=30",
         "-c:v", "libx264",           # H.264 video codec
         "-preset", "medium",         # Balance between speed and compression
         "-crf", "23",                # Quality (lower = better, 18-28 is good range)

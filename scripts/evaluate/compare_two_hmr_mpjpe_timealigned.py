@@ -25,12 +25,14 @@ def root_center(poses, pelvis_idxs=[1, 2]):
 # ---------- Per-Frame Procrustes (similarity) alignment via Kabsch + scale ----------
 def compute_jpe(S1, S2):
     # S1, S2: (frames, num_joints, 3)
-    return torch.sqrt(((S1 - S2) ** 2).sum(dim=-1)).mean(dim=-1).numpy()  # (frames,)
+    result = torch.sqrt(((S1 - S2) ** 2).sum(dim=-1)).mean(dim=-1)
+    return result.cpu().numpy() if result.is_cuda else result.numpy()  # (frames,)
 
 
 def compute_perjoint_jpe(S1, S2):
     # S1, S2: (frames, num_joints, 3)
-    return torch.sqrt(((S1 - S2) ** 2).sum(dim=-1)).numpy()  # (frames, num_joints)
+    result = torch.sqrt(((S1 - S2) ** 2).sum(dim=-1))
+    return result.cpu().numpy() if result.is_cuda else result.numpy()  # (frames, num_joints)
 
 
 def batch_align_by_pelvis(data_list, pelvis_idxs=[1, 2]):
@@ -183,7 +185,116 @@ def compute_perjoint_metrics(pred_j3d, target_j3d, pelvis_idxs=[1, 2]):
     }
     return perjoint_metrics
 
-# --- Helper Functions ---
+
+# ---------- Pairwise PA-MPJPE cost matrix + DTW ----------
+
+def compute_pairwise_pa_mpjpe_matrix(pred_j3d, target_j3d, pelvis_idxs=[1, 2], device=None, chunk=None, show_progress=True):
+    """
+    Build a cost matrix C where C[i, j] = PA-MPJPE(pred_frame_i, target_frame_j).
+    pred_j3d:  (T1, J, 3) torch.Tensor
+    target_j3d:(T2, J, 3) torch.Tensor
+    Returns:
+        C: (T1, T2) numpy array (float32), in millimeters (matches your compute_jpe unit)
+    """
+    assert torch.is_tensor(pred_j3d) and torch.is_tensor(target_j3d), "Inputs must be torch tensors"
+    assert pred_j3d.ndim == 3 and target_j3d.ndim == 3 and pred_j3d.shape[1:] == target_j3d.shape[1:], "Shape mismatch"
+    T1, J, _ = pred_j3d.shape
+    T2 = target_j3d.shape[0]
+
+    if device is None:
+        device = pred_j3d.device
+
+    # Commented out because using CPU was faster in our case.
+    # if torch.cuda.is_available() and device.type == 'cpu':
+    #     device = torch.device('cuda')
+    #     print(f"  Using GPU ({torch.cuda.get_device_name(0)}) for acceleration")
+    
+    pred = pred_j3d.to(device)
+    targ = target_j3d.to(device)
+
+    # Pelvis-center each frame independently (translation only)
+    pred_c, targ_c, _, _ = batch_align_by_pelvis([pred, targ, None, None], pelvis_idxs=pelvis_idxs)  # (T1,J,3), (T2,J,3)
+
+    # Build pairwise PA-MPJPE with batched Procrustes
+    C = np.zeros((T1, T2), dtype=np.float32)
+    
+    iterator = tqdm(range(T1), desc="Computing cost matrix", unit="frame") if show_progress else range(T1)
+    
+    with torch.no_grad():
+        for i in iterator:
+            # Compare frame i to all target frames at once (vectorized over T2)
+            S1 = pred_c[i:i+1].repeat(T2, 1, 1)        # (T2, J, 3)
+            S2 = targ_c                                 # (T2, J, 3)
+
+            # If very long sequences, you can chunk along T2 to save memory
+            if chunk is None:
+                S1_hat = batch_compute_similarity_transform_torch(S1, S2)   # (T2, J, 3)
+                costs = compute_jpe(S1_hat, S2)                              # (T2,)
+                C[i, :] = costs
+            else:
+                k = 0
+                while k < T2:
+                    kk = min(k + chunk, T2)
+                    S1_hat = batch_compute_similarity_transform_torch(S1[k:kk], S2[k:kk])  # (kk-k, J, 3)
+                    costs = compute_jpe(S1_hat, S2[k:kk])                                  # (kk-k,)
+                    C[i, k:kk] = costs
+                    k = kk
+    return C
+
+
+def dtw_from_cost_matrix(C, band=None):
+    """
+    Standard DTW on a precomputed cost matrix C (T1 x T2).
+    Steps allowed: (1,0), (0,1), (1,1). No slope weighting.
+    band: optional Sakoe-Chiba band (int). If set, enforces |i - j| <= band.
+
+    Returns:
+        total_cost: float
+        path: list of (i, j) indices, monotonic warping path from (0,0) to (T1-1, T2-1)
+        D: accumulated cost matrix (T1 x T2) as numpy array
+    """
+    T1, T2 = C.shape
+    D = np.full((T1 + 1, T2 + 1), np.inf, dtype=np.float64)
+    D[0, 0] = 0.0
+
+    # Forward pass with optional banding
+    for i in range(1, T1 + 1):
+        j_min = 1
+        j_max = T2 + 1
+        if band is not None:
+            j_min = max(1, i - band)
+            j_max = min(T2 + 1, i + band + 1)
+        for j in range(j_min, j_max):
+            d = C[i - 1, j - 1]
+            D[i, j] = d + min(D[i - 1, j],     # insertion (i-1, j)
+                              D[i, j - 1],     # deletion  (i, j-1)
+                              D[i - 1, j - 1]) # match     (i-1, j-1)
+
+    # Backtrack
+    i, j = T1, T2
+    path = [(i - 1, j - 1)]
+    
+    while i > 1 or j > 1:
+        if i == 1:
+            j -= 1
+        elif j == 1:
+            i -= 1
+        else:
+            # min finding
+            candidates = np.array([D[i - 1, j], D[i, j - 1], D[i - 1, j - 1]])
+            move = candidates.argmin()
+            if move == 0:    # came from (i-1, j)
+                i -= 1
+            elif move == 1:  # came from (i, j-1)
+                j -= 1
+            else:            # came from (i-1, j-1)
+                i -= 1
+                j -= 1
+        path.append((i - 1, j - 1))
+    
+    path.reverse()
+    return float(D[T1, T2]), path, D[1:, 1:]
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
@@ -310,3 +421,45 @@ if __name__ == "__main__":
     print(f"Sequence-level PA-MPJPE: {result_optimal['pa_mpjpe']:.6f}")
     print(f"Sequence-level MPJPE: {result_optimal['mpjpe']:.6f}")
 
+    # ========== DTW COMPUTATION ==========
+    print(f"\n{'='*60}")
+    print("DTW-based Alignment")
+    print(f"{'='*60}")
+    
+    # 1) Build pairwise PA-MPJPE cost matrix (m)
+    print("\nStep 1: Building pairwise PA-MPJPE cost matrix for DTW...")
+    cost_matrix_start = time.time()
+    C = compute_pairwise_pa_mpjpe_matrix(pred_j3d, target_j3d, pelvis_idxs=[1, 2], device=pred_j3d.device, chunk=None, show_progress=True)
+    cost_matrix_time = time.time() - cost_matrix_start
+    print(f"Cost matrix shape: {C.shape}")
+    print(f"Cost matrix computation time: {cost_matrix_time:.2f} seconds")
+    print(f"Average time per pred frame: {cost_matrix_time/T1*1000:.2f} ms")
+
+    # 2) Run DTW (optionally set a Sakoe-Chiba band, e.g., band=30)
+    print("\nStep 2: Running DTW algorithm...")
+    dtw_start = time.time()
+    total_cost, path, D = dtw_from_cost_matrix(C, band=None)
+    dtw_time = time.time() - dtw_start
+    
+    # Vectorized computation of average cost along path
+    path_indices = np.array(path)
+    avg_cost_along_path = C[path_indices[:, 0], path_indices[:, 1]].mean()
+
+    print(f"DTW computation time: {dtw_time:.2f} seconds")
+    print(f"Total DTW time (cost matrix + algorithm): {cost_matrix_time + dtw_time:.2f} seconds")
+
+    print(f"\n{'='*60}")
+    print("DTW Results:")
+    print(f"{'='*60}")
+    print(f"Total DTW cost: {total_cost:.6f} (sum of PA-MPJPE along path)")
+    print(f"Path length: {len(path)}")
+    print(f"Average PA-MPJPE along DTW path: {avg_cost_along_path:.6f} m")
+
+    # Optional: show best brute-force shift vs DTW average
+    print(f"\n{'='*60}")
+    print("Comparison: Brute-force vs DTW")
+    print(f"{'='*60}")
+    print(f"Best brute-force PA-MPJPE (no warping): {best_pa_mpjpe:.6f} m")
+    print(f"DTW average PA-MPJPE (with warping):    {avg_cost_along_path:.6f} m")
+    print(f"Improvement: {((best_pa_mpjpe - avg_cost_along_path) / best_pa_mpjpe * 100):.2f}%")
+    print(f"{'='*60}")

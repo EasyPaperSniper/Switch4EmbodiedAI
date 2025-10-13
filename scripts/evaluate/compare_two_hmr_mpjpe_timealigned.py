@@ -359,6 +359,12 @@ if __name__ == "__main__":
     pred_j3d = get_smpl_joint_position_array(smplx_data_frames_1)
     target_j3d = get_smpl_joint_position_array(smplx_data_frames_2)
 
+    # Trim first and last 2 seconds from target_j3d to avoid boundary effects
+    trim_seconds = 2
+    trim_frames = int(trim_seconds * tgt_fps)
+    target_j3d = target_j3d[trim_frames:-trim_frames]
+    print(f"Trimmed {trim_seconds} seconds ({trim_frames} frames) from start and end of target sequence.")
+
     T1 = pred_j3d.shape[0]
     T2 = target_j3d.shape[0]
     print(f"Frames in GVHMR 1: {T1}, Frames in GVHMR 2: {T2}")

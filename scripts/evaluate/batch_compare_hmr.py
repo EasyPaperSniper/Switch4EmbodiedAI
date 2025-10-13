@@ -76,14 +76,96 @@ def run_comparison(gvhmr_1, gvhmr_2, python_cmd="python"):
         return False
 
 
+def process_song(gvhmr_dir, reference, args):
+    """
+    Process all GVHMR files in a directory against a reference.
+    
+    Args:
+        gvhmr_dir: Path to directory containing GVHMR files
+        reference: Path to reference GVHMR file
+        args: Command line arguments
+        
+    Returns:
+        Tuple of (successful_count, failed_count, failed_files_list)
+    """
+    # Find all GVHMR files
+    gvhmr_files = find_gvhmr_files(gvhmr_dir)
+    
+    if not gvhmr_files:
+        print(f"Error: No hmr4d_results.pt files found in {gvhmr_dir}")
+        return 0, 0, []
+    
+    print(f"\n{'='*80}")
+    print(f"Batch Comparison Configuration")
+    print(f"{'='*80}")
+    print(f"GVHMR directory: {gvhmr_dir}")
+    print(f"Reference file: {reference}")
+    print(f"Found {len(gvhmr_files)} GVHMR file(s) to compare")
+    print(f"Python interpreter: {args.python}")
+    print(f"{'='*80}")
+    
+    # List all files to compare
+    print(f"\nFiles to compare:")
+    for i, gvhmr_file in enumerate(gvhmr_files, 1):
+        relative_path = gvhmr_file.relative_to(gvhmr_dir)
+        print(f"  {i}. {relative_path.parent}/")
+    
+    if args.dry_run:
+        print("\n[DRY RUN] - No comparisons will be executed")
+        return 0, 0, []
+    
+    # Run comparisons
+    print(f"\n{'='*80}")
+    print(f"Starting batch comparisons...")
+    print(f"{'='*80}")
+    
+    successful = 0
+    failed = 0
+    failed_files = []
+    
+    for i, gvhmr_file in enumerate(gvhmr_files, 1):
+        print(f"\n[{i}/{len(gvhmr_files)}] Processing: {gvhmr_file.parent.name}")
+        
+        success = run_comparison(gvhmr_file, reference, args.python)
+        
+        if success:
+            successful += 1
+        else:
+            failed += 1
+            failed_files.append(gvhmr_file.parent.name)
+    
+    # Summary
+    print(f"\n{'='*80}")
+    print(f"Batch Comparison Summary")
+    print(f"{'='*80}")
+    print(f"Total files: {len(gvhmr_files)}")
+    print(f"Successful: {successful}")
+    print(f"Failed: {failed}")
+    
+    if failed > 0:
+        print(f"\nFailed comparisons:")
+        for failed_name in failed_files:
+            print(f"  ✗ {failed_name}")
+    
+    print(f"{'='*80}")
+    
+    if failed == 0:
+        print("\n✓ All comparisons completed successfully!")
+    
+    return successful, failed, failed_files
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Batch compare multiple GVHMR predictions against a reference",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Compare all recordings for a specific song and person
+  # Compare all recordings for a single song and person
   python batch_compare_hmr.py --song Old_Town_Road --person Wontaek
+  
+  # Compare all recordings for multiple songs
+  python batch_compare_hmr.py --song Old_Town_Road Unstoppable bad_guy --person Wontaek
   
   # Compare with custom paths
   python batch_compare_hmr.py --gvhmr_dir /path/to/recordings --reference /path/to/ref.pt
@@ -97,7 +179,8 @@ Examples:
     parser.add_argument(
         "--song",
         type=str,
-        help="Song name (e.g., 'Old_Town_Road', 'Unstoppable'). Will use default directory structure."
+        nargs='+',
+        help="Song name(s) (e.g., 'Old_Town_Road' or 'Old_Town_Road Unstoppable bad_guy'). Will use default directory structure."
     )
     parser.add_argument(
         "--person",
@@ -137,88 +220,80 @@ Examples:
         if not (args.song and args.person):
             parser.error("Both --song and --person are required when using song-based mode")
         
-        # Construct paths based on song and person
-        gvhmr_dir = f"{DEFAULT_HUMAN_BASE}/{args.person}/{args.song}_cut"
-        reference = f"{DEFAULT_REFERENCE_BASE}/{args.song}_cut/hmr4d_results.pt"
+        # Process multiple songs
+        songs = args.song if isinstance(args.song, list) else [args.song]
+        
+        all_successful = 0
+        all_failed = 0
+        all_failed_files = []
+        
+        for song_idx, song in enumerate(songs, 1):
+            if len(songs) > 1:
+                print(f"\n{'#'*80}")
+                print(f"# SONG {song_idx}/{len(songs)}: {song}")
+                print(f"{'#'*80}\n")
+            
+            # Construct paths based on song and person
+            gvhmr_dir = pathlib.Path(f"{DEFAULT_HUMAN_BASE}/{args.person}/{song}_cut")
+            reference = pathlib.Path(f"{DEFAULT_REFERENCE_BASE}/{song}_cut/hmr4d_results.pt")
+            
+            # Check if paths exist
+            if not gvhmr_dir.exists():
+                print(f"Warning: GVHMR directory does not exist: {gvhmr_dir}")
+                print(f"Skipping song: {song}\n")
+                continue
+            
+            if not reference.exists():
+                print(f"Warning: Reference file does not exist: {reference}")
+                print(f"Skipping song: {song}\n")
+                continue
+            
+            # Process this song
+            successful, failed, failed_files = process_song(gvhmr_dir, reference, args)
+            all_successful += successful
+            all_failed += failed
+            
+            # Track failed files with song name
+            for failed_name in failed_files:
+                all_failed_files.append(f"{song}: {failed_name}")
+        
+        # Overall summary for multiple songs
+        if len(songs) > 1:
+            print(f"\n{'#'*80}")
+            print(f"# OVERALL SUMMARY FOR ALL SONGS")
+            print(f"{'#'*80}")
+            print(f"Songs processed: {len(songs)}")
+            print(f"Total comparisons successful: {all_successful}")
+            print(f"Total comparisons failed: {all_failed}")
+            
+            if all_failed > 0:
+                print(f"\nAll failed comparisons across songs:")
+                for failed_info in all_failed_files:
+                    print(f"  ✗ {failed_info}")
+            
+            print(f"{'#'*80}")
+        
+        sys.exit(1 if all_failed > 0 else 0)
         
     elif args.gvhmr_dir and args.reference:
-        gvhmr_dir = args.gvhmr_dir
-        reference = args.reference
+        gvhmr_dir = pathlib.Path(args.gvhmr_dir)
+        reference = pathlib.Path(args.reference)
+        
+        # Check if paths exist
+        if not gvhmr_dir.exists():
+            print(f"Error: GVHMR directory does not exist: {gvhmr_dir}")
+            sys.exit(1)
+        
+        if not reference.exists():
+            print(f"Error: Reference file does not exist: {reference}")
+            sys.exit(1)
+        
+        # Process single custom path
+        successful, failed, failed_files = process_song(gvhmr_dir, reference, args)
+        sys.exit(1 if failed > 0 else 0)
         
     else:
         parser.error("Either use --song and --person, OR use --gvhmr_dir and --reference")
-    
-    # Convert to Path objects
-    gvhmr_dir = pathlib.Path(gvhmr_dir)
-    reference = pathlib.Path(reference)
-    
-    # Check if paths exist
-    if not gvhmr_dir.exists():
-        print(f"Error: GVHMR directory does not exist: {gvhmr_dir}")
-        sys.exit(1)
-    
-    if not reference.exists():
-        print(f"Error: Reference file does not exist: {reference}")
-        sys.exit(1)
-    
-    # Find all GVHMR files
-    gvhmr_files = find_gvhmr_files(gvhmr_dir)
-    
-    if not gvhmr_files:
-        print(f"Error: No hmr4d_results.pt files found in {gvhmr_dir}")
-        sys.exit(1)
-    
-    print(f"\n{'='*80}")
-    print(f"Batch Comparison Configuration")
-    print(f"{'='*80}")
-    print(f"GVHMR directory: {gvhmr_dir}")
-    print(f"Reference file: {reference}")
-    print(f"Found {len(gvhmr_files)} GVHMR file(s) to compare")
-    print(f"Python interpreter: {args.python}")
-    print(f"{'='*80}")
-    
-    # List all files to compare
-    print(f"\nFiles to compare:")
-    for i, gvhmr_file in enumerate(gvhmr_files, 1):
-        relative_path = gvhmr_file.relative_to(gvhmr_dir)
-        print(f"  {i}. {relative_path.parent}/")
-    
-    if args.dry_run:
-        print("\n[DRY RUN] - No comparisons will be executed")
-        sys.exit(0)
-    
-    # Run comparisons
-    print(f"\n{'='*80}")
-    print(f"Starting batch comparisons...")
-    print(f"{'='*80}")
-    
-    successful = 0
-    failed = 0
-    
-    for i, gvhmr_file in enumerate(gvhmr_files, 1):
-        print(f"\n[{i}/{len(gvhmr_files)}] Processing: {gvhmr_file.parent.name}")
-        
-        success = run_comparison(gvhmr_file, reference, args.python)
-        
-        if success:
-            successful += 1
-        else:
-            failed += 1
-    
-    # Summary
-    print(f"\n{'='*80}")
-    print(f"Batch Comparison Summary")
-    print(f"{'='*80}")
-    print(f"Total files: {len(gvhmr_files)}")
-    print(f"Successful: {successful}")
-    print(f"Failed: {failed}")
-    print(f"{'='*80}")
-    
-    if failed > 0:
-        sys.exit(1)
-    else:
-        print("\n✓ All comparisons completed successfully!")
-        sys.exit(0)
 
 
 if __name__ == "__main__":

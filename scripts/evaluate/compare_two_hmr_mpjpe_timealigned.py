@@ -463,3 +463,42 @@ if __name__ == "__main__":
     print(f"DTW average PA-MPJPE (with warping):    {avg_cost_along_path:.6f} m")
     print(f"Improvement: {((best_pa_mpjpe - avg_cost_along_path) / best_pa_mpjpe * 100):.2f}%")
     print(f"{'='*60}")
+
+    # ========== SAVE RESULTS ==========
+    # Save results to a text file in the same directory as gvhmr_1
+    gvhmr_1_path = pathlib.Path(args.gvhmr_1)
+    gvhmr_2_path = pathlib.Path(args.gvhmr_2)
+    output_dir = gvhmr_1_path.parent
+    output_filename = f"alignment_results.txt"
+    output_path = output_dir / output_filename
+    
+    print(f"\n{'='*60}")
+    print(f"Saving results to: {output_path}")
+    print(f"{'='*60}")
+    
+    with open(output_path, 'w') as f:
+        f.write("="*60 + "\n")
+        f.write("Motion Alignment Comparison Results\n")
+        f.write("="*60 + "\n\n")
+        
+        f.write("Input Files:\n")
+        f.write(f"  GVHMR 1: {args.gvhmr_1}\n")
+        f.write(f"  GVHMR 2: {args.gvhmr_2}\n\n")
+        
+        f.write("Sequence Information:\n")
+        f.write(f"  Frames in GVHMR 1 (T1): {T1}\n")
+        f.write(f"  Frames in GVHMR 2 (T2): {T2}\n")
+        f.write(f"  Target FPS: {tgt_fps}\n\n")
+        
+        f.write("="*60 + "\n")
+        f.write("BRUTE-FORCE TIME ALIGNMENT (No Warping)\n")
+        f.write("="*60 + "\n")
+        f.write(f"Best start_idx: {best_start_idx}\n")
+        f.write(f"PA-MPJPE: {best_pa_mpjpe:.6f} m\n")
+        f.write(f"MPJPE: {best_mpjpe:.6f} m\n")
+        f.write("="*60 + "\n")
+        f.write("DTW Result\n")
+        f.write("="*60 + "\n")
+        f.write(f"PA-MPJPE (DTW): {avg_cost_along_path:.6f} m\n")
+    
+    print(f"✓ Results saved successfully to: {output_path}")

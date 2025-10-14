@@ -24,7 +24,7 @@ COMPARE_SCRIPT = HERE / "compare_two_hmr_mpjpe_timealigned.py"
 
 # Default base directories
 DEFAULT_HUMAN_BASE = "/home/jkim3662/Videos/Switch4EAI/HumanRecordings_GVHMR"
-DEFAULT_REFERENCE_BASE = "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GVHMR"
+DEFAULT_REFERENCE_BASE = "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GVHMR/cut_mirrored"
 
 
 def find_gvhmr_files(directory):

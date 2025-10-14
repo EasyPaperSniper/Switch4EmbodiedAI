@@ -4,95 +4,96 @@ import matplotlib.pyplot as plt
 from scipy.stats import pearsonr
 
 # === DATASET (from your sheet) ===
-data = {
-    "Old_Town_Road": {
-        "normal_1": {
-            "JDS": {"Jeonghwan": 4262, "Wontaek": 4980},
-            "DTW": {"Jeonghwan": 0.102, "Wontaek": 0.094},
-            "PA-MPJPE": {"Jeonghwan": 0.123, "Wontaek": 0.112},
-            "MPJPE": {"Jeonghwan": 0.156, "Wontaek": 0.153},
-        },
-        "normal_2": {
-            "JDS": {"Jeonghwan": 5382, "Wontaek": 8095},
-            "DTW": {"Jeonghwan": 0.0992, "Wontaek": 0.095},
-            "PA-MPJPE": {"Jeonghwan": 0.124, "Wontaek": 0.113},
-            "MPJPE": {"Jeonghwan": 0.159, "Wontaek": 0.146},
-        },
-        "normal_3": {
-            "JDS": {"Jeonghwan": 5704, "Wontaek": 8365},
-            "DTW": {"Jeonghwan": 0.0983, "Wontaek": 0.094},
-            "PA-MPJPE": {"Jeonghwan": 0.124, "Wontaek": 0.123},
-            "MPJPE": {"Jeonghwan": 0.159, "Wontaek": 0.154},
-        },
-        "upperbody_1": {
-            "JDS": {"Jeonghwan": 4634},
-            "DTW": {"Jeonghwan": 0.112},
-            "PA-MPJPE": {"Jeonghwan": 0.126},
-            "MPJPE": {"Jeonghwan": 0.154},
-        },
-        "exaggeration_1": {
-            "JDS": {"Jeonghwan": 3366},
-            "DTW": {"Jeonghwan": 0.107},
-            "PA-MPJPE": {"Jeonghwan": 0.13},
-            "MPJPE": {"Jeonghwan": 0.168},
-        },
-        "controllerflip_1": {
-            "JDS": {"Jeonghwan": 5250},
-            "DTW": {"Jeonghwan": 0.101},
-            "PA-MPJPE": {"Jeonghwan": 0.127},
-            "MPJPE": {"Jeonghwan": 0.164},
-        },
-        "controllerarm_1": {
-            "JDS": {"Jeonghwan": 5688},
-            "DTW": {"Jeonghwan": 0.102},
-            "PA-MPJPE": {"Jeonghwan": 0.127},
-            "MPJPE": {"Jeonghwan": 0.171},
-        },
+data = {}
+data["Old_Town_Road"] = {
+    "normal_1": {
+        "JDS": {"Jeonghwan": 4262, "Wontaek": 4980},
+        "PA-MPJPE": {"Jeonghwan": 0.118, "Wontaek": 0.089},
+        "MPJPE": {"Jeonghwan": 0.145, "Wontaek": 0.1163},
+        "DTW": {"Jeonghwan": 0.0886, "Wontaek": 0.0785},
     },
+    "normal_2": {
+        "JDS": {"Jeonghwan": 5382, "Wontaek": 8095},
+        "PA-MPJPE": {"Jeonghwan": 0.115, "Wontaek": 0.086},
+        "MPJPE": {"Jeonghwan": 0.147, "Wontaek": 0.112},
+        "DTW": {"Jeonghwan": 0.0858, "Wontaek": 0.0802},
+    },
+    "normal_3": {
+        "JDS": {"Jeonghwan": 5704, "Wontaek": 8365},
+        "PA-MPJPE": {"Jeonghwan": 0.13, "Wontaek": 0.115},
+        "MPJPE": {"Jeonghwan": 0.159, "Wontaek": 0.14},
+        "DTW": {"Jeonghwan": 0.0873, "Wontaek": 0.081},
+    },
+    "upperbody_1": {
+        "JDS": {"Jeonghwan": 4634},
+        "PA-MPJPE": {"Jeonghwan": 0.124},
+        "MPJPE": {"Jeonghwan": 0.15},
+        "DTW": {"Jeonghwan": 0.103},
+    },
+    "exaggeration_1": {
+        "JDS": {"Jeonghwan": 3366},
+        "PA-MPJPE": {"Jeonghwan": 0.132},
+        "MPJPE": {"Jeonghwan": 0.163},
+        "DTW": {"Jeonghwan": 0.0986},
+    },
+    "controllerflip_1": {
+        "JDS": {"Jeonghwan": 5250},
+        "PA-MPJPE": {"Jeonghwan": 0.125},
+        "MPJPE": {"Jeonghwan": 0.157},
+        "DTW": {"Jeonghwan": 0.0898},
+    },
+    "controllerarm_1": {
+        "JDS": {"Jeonghwan": 5688},
+        "PA-MPJPE": {"Jeonghwan": 0.1222},
+        "MPJPE": {"Jeonghwan": 0.161},
+        "DTW": {"Jeonghwan": 0.0868},
+    },
+}
 
-    "Unstoppable": {
-        "normal_1": {
-            "JDS": {"Jeonghwan": 11750},
-            "DTW": {"Jeonghwan": 0.102},
-            "PA-MPJPE": {"Jeonghwan": 0.128},
-            "MPJPE": {"Jeonghwan": 0.175},
-        },
-        "normal_2": {
-            "JDS": {"Jeonghwan": 11664},
-            "DTW": {"Jeonghwan": 0.103},
-            "PA-MPJPE": {"Jeonghwan": 0.129},
-            "MPJPE": {"Jeonghwan": 0.179},
-        },
-        "normal_3": {
-            "JDS": {"Jeonghwan": 12191},
-            "DTW": {"Jeonghwan": 0.106},
-            "PA-MPJPE": {"Jeonghwan": 0.128},
-            "MPJPE": {"Jeonghwan": 0.180},
-        },
-        "upperbody_1": {
-            "JDS": {"Jeonghwan": 12048},
-            "DTW": {"Jeonghwan": 0.123},
-            "PA-MPJPE": {"Jeonghwan": 0.138},
-            "MPJPE": {"Jeonghwan": 0.182},
-        },
-        "exaggeration_1": {
-            "JDS": {"Jeonghwan": 7373},
-            "DTW": {"Jeonghwan": 0.115},
-            "PA-MPJPE": {"Jeonghwan": 0.133},
-            "MPJPE": {"Jeonghwan": 0.186},
-        },
-        "controllerflip_1": {
-            "JDS": {"Jeonghwan": 8650},
-            "DTW": {"Jeonghwan": 0.109},
-            "PA-MPJPE": {"Jeonghwan": 0.132},
-            "MPJPE": {"Jeonghwan": 0.180},
-        },
-        "controllerarm_1": {
-            "JDS": {"Jeonghwan": 11334},
-            "DTW": {"Jeonghwan": 0.103},
-            "PA-MPJPE": {"Jeonghwan": 0.126},
-            "MPJPE": {"Jeonghwan": 0.176},
-        },
+
+data["Unstoppable"] = {
+    "normal_1": {
+        "JDS": {"Jeonghwan": 11750},
+        "PA-MPJPE": {"Jeonghwan": 0.107},
+        "MPJPE": {"Jeonghwan": 0.142},
+        "PA-MPJPE(DTW)": {"Jeonghwan": 0.0938},
+        # No plain DTW provided for normal_1 in your update
+    },
+    "normal_2": {
+        "JDS": {"Jeonghwan": 11664},
+        "PA-MPJPE": {"Jeonghwan": 0.109},
+        "MPJPE": {"Jeonghwan": 0.145},
+        "DTW": {"Jeonghwan": 0.0956},
+    },
+    "normal_3": {
+        "JDS": {"Jeonghwan": 12191},
+        "PA-MPJPE": {"Jeonghwan": 0.107},
+        "MPJPE": {"Jeonghwan": 0.145},
+        "DTW": {"Jeonghwan": 0.102},
+    },
+    "upperbody_1": {
+        "JDS": {"Jeonghwan": 12048},
+        "PA-MPJPE": {"Jeonghwan": 0.12},
+        "MPJPE": {"Jeonghwan": 0.158},
+        "DTW": {"Jeonghwan": 0.114},
+    },
+    "exaggeration_1": {
+        "JDS": {"Jeonghwan": 7373},
+        "PA-MPJPE": {"Jeonghwan": 0.122},
+        "MPJPE": {"Jeonghwan": 0.161},
+        "DTW": {"Jeonghwan": 0.11},
+    },
+    "controllerflip_1": {
+        "JDS": {"Jeonghwan": 8650},
+        "PA-MPJPE": {"Jeonghwan": 0.113},
+        "MPJPE": {"Jeonghwan": 0.148},
+        "DTW": {"Jeonghwan": 0.103},
+    },
+    "controllerarm_1": {
+        "JDS": {"Jeonghwan": 11334},
+        "PA-MPJPE": {"Jeonghwan": 0.103},
+        "MPJPE": {"Jeonghwan": 0.14},
+        "DTW": {"Jeonghwan": 0.0958},
     },
 }
 
@@ -107,7 +108,7 @@ from scipy.stats import pearsonr
 # --- UPDATED helper: select rows by run type and/or exact condition names ---
 def get_song_df(
     data, song, metric="DTW", name="Jeonghwan",
-    include_run_types=None,   # e.g., {"normal"} or {"normal", "upperbody"}
+    include_run_types=None,   # e.g., {"normal"} or {"normal", "exaggeration", "upperbody"}
     include_conditions=None   # e.g., {"normal_1", "normal_2"}
 ):
     """
@@ -249,12 +250,12 @@ def plot_correlation_merged(
 
 
 # === Plot examples ===
-plot_correlation_merged(data, "Old_Town_Road", "DTW", names_to_include=("Jeonghwan", "Wontaek"), include_run_types={"normal", "controllerarm"})
-plot_correlation_merged(data, "Old_Town_Road", "DTW", names_to_include=("Jeonghwan", "Wontaek"), include_run_types={"normal", "controllerarm", "upperbody"})
-plot_correlation_merged(data, "Old_Town_Road", "PA-MPJPE", names_to_include=("Jeonghwan", "Wontaek"), include_run_types={"normal", "controllerarm"})
-plot_correlation_merged(data, "Old_Town_Road", "PA-MPJPE", names_to_include=("Jeonghwan", "Wontaek"), include_run_types={"normal", "controllerarm", "upperbody"})
-plot_correlation_merged(data, "Old_Town_Road", "MPJPE", names_to_include=("Jeonghwan", "Wontaek"), include_run_types={"normal", "controllerarm"})
-plot_correlation_merged(data, "Old_Town_Road", "MPJPE", names_to_include=("Jeonghwan", "Wontaek"), include_run_types={"normal", "controllerarm", "upperbody"})
+plot_correlation_merged(data, "Old_Town_Road", "DTW", names_to_include=("Jeonghwan", "Wontaek"), include_run_types={"normal", "exaggeration", "controllerarm"})
+plot_correlation_merged(data, "Old_Town_Road", "DTW", names_to_include=("Jeonghwan", "Wontaek"), include_run_types={"normal", "exaggeration", "controllerarm", "upperbody"})
+plot_correlation_merged(data, "Old_Town_Road", "PA-MPJPE", names_to_include=("Jeonghwan", "Wontaek"), include_run_types={"normal", "exaggeration", "controllerarm"})
+plot_correlation_merged(data, "Old_Town_Road", "PA-MPJPE", names_to_include=("Jeonghwan", "Wontaek"), include_run_types={"normal", "exaggeration", "controllerarm", "upperbody"})
+plot_correlation_merged(data, "Old_Town_Road", "MPJPE", names_to_include=("Jeonghwan", "Wontaek"), include_run_types={"normal", "exaggeration", "controllerarm"})
+plot_correlation_merged(data, "Old_Town_Road", "MPJPE", names_to_include=("Jeonghwan", "Wontaek"), include_run_types={"normal", "exaggeration", "controllerarm", "upperbody"})
 plot_correlation_merged(data, "Unstoppable", "DTW", names_to_include=("Jeonghwan", "Wontaek"), include_run_types={"normal", "controllerarm"})
 plot_correlation_merged(data, "Unstoppable", "DTW", names_to_include=("Jeonghwan", "Wontaek"), include_run_types={"normal", "controllerarm", "upperbody"})
 plot_correlation_merged(data, "Unstoppable", "PA-MPJPE", names_to_include=("Jeonghwan", "Wontaek"), include_run_types={"normal", "controllerarm"})

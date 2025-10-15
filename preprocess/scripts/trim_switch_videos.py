@@ -3,17 +3,18 @@ import subprocess
 # Dictionary mapping filename -> (start_time, end_time)
 # Times are in "HH:MM:SS" format
 cuts = {
-    "Baby_Shark.mkv": ("00:00:16", "00:01:36"),
-    "bad_guy.mkv": ("00:00:00", "00:03:09"),
-    "Heart_Of_Glass.mkv": ("00:00:08", "00:03:44"),
-    "Old_Town_Road.mkv": ("00:00:00", "00:02:41"),
-    "Padam_Padam.mkv": ("00:00:25", "00:02:54"),
-    "Soy_Yo.mkv": ("00:00:17", "00:02:49"),
-    "Unstoppable.mkv": ("00:00:12", "00:03:36"),
+    "24K_Magic.mkv": ("00:00:08", "00:03:51"),
+    # "Baby_Shark.mkv": ("00:00:16", "00:01:36"),
+    # "bad_guy.mkv": ("00:00:00", "00:03:09"),
+    # "Heart_Of_Glass.mkv": ("00:00:08", "00:03:44"),
+    # "Old_Town_Road.mkv": ("00:00:00", "00:02:41"),
+    # "Padam_Padam.mkv": ("00:00:25", "00:02:54"),
+    # "Soy_Yo.mkv": ("00:00:17", "00:02:49"),
+    # "Unstoppable.mkv": ("00:00:12", "00:03:36"),
 }
 
-infile_dir = "/home/jkim3662/Projects/Switch4EmbodiedAI/data/switch_videos/raw"
-outfile_dir = "/home/jkim3662/Projects/Switch4EmbodiedAI/data/switch_videos/cut"
+infile_dir = "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings/raw2"
+outfile_dir = "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings/cut2"
 
 for infile, (start, end) in cuts.items():
     # output file name -> same base, but with _cut.mp4 suffix

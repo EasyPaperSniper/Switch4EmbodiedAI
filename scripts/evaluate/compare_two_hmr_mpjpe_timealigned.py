@@ -4,6 +4,8 @@ import numpy as np
 import argparse
 import os
 import time
+import csv
+import subprocess
 from tqdm import tqdm
 HERE = pathlib.Path(__file__).parent
 os.sys.path.append(str(HERE / ".." / ".."))
@@ -295,6 +297,44 @@ def dtw_from_cost_matrix(C, band=None):
     path.reverse()
     return float(D[T1, T2]), path, D[1:, 1:]
 
+
+def cut_video_with_ffmpeg(input_video_path, output_video_path, start_frame, end_frame, fps):
+    """
+    Cut a video using ffmpeg with frame-based precision.
+    
+    Args:
+        input_video_path: Path to input video
+        output_video_path: Path to output video
+        start_frame: Start frame number (0-indexed)
+        end_frame: End frame number (exclusive)
+        fps: Frames per second of the video
+    
+    Returns:
+        True if successful, False otherwise
+    """
+    # Use frame-based filtering for exact frame selection
+    num_frames = end_frame - start_frame
+    
+    cmd = [
+        "ffmpeg",
+        "-i", str(input_video_path),
+        "-vf", f"select='between(n\\,{start_frame}\\,{end_frame-1})',setpts=PTS-STARTPTS",
+        "-af", f"aselect='between(n\\,{start_frame}\\,{end_frame-1})',asetpts=PTS-STARTPTS",
+        "-y", str(output_video_path),
+    ]
+    
+    print(f"Running: {' '.join(cmd)}")
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    
+    if result.returncode != 0:
+        print(f"Warning: ffmpeg returned non-zero exit code: {result.returncode}")
+        print(f"stderr: {result.stderr}")
+        return False
+    else:
+        print(f"✓ Successfully cut video: {output_video_path}")
+        return True
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
@@ -312,10 +352,42 @@ if __name__ == "__main__":
         # required=True,
         default="/home/yanjieze/projects/g1_wbc/GMR/GVHMR/outputs/demo/tennis/hmr4d_results.pt",
     )
+    parser.add_argument(
+        "--csv_output",
+        help="Path to CSV file for saving metrics (default: alignment_results.csv in same directory as gvhmr_1)",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--cut_videos",
+        help="Cut videos based on optimal alignment",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
+        "--video_names",
+        help="Names of video files to cut (default: 0_input_video.mp4 1_incam.mp4)",
+        type=str,
+        nargs='+',
+        default=['0_input_video.mp4', '1_incam.mp4'],
+    )
+    parser.add_argument(
+        "--compute_dtw",
+        help="Compute DTW alignment on the optimal cut segment (default: True)",
+        action="store_true",
+        default=True,
+    )
+    parser.add_argument(
+        "--no_dtw",
+        help="Skip DTW computation",
+        action="store_false",
+        dest="compute_dtw",
+    )
     args = parser.parse_args()
     
     SMPLX_FOLDER = HERE / ".." / "assets" / "body_models" / "smplx"
     SMPLX_FOLDER = "assets/body_models"
+    TRIM_SECONDS = 0  # seconds to trim from start and end of target sequence
     # Load First SMPLX trajectory
     smplx_data_1, body_model_1, smplx_output_1, actual_human_height_1 = load_gvhmr_pred_file(
         args.gvhmr_1, SMPLX_FOLDER
@@ -360,9 +432,10 @@ if __name__ == "__main__":
     target_j3d = get_smpl_joint_position_array(smplx_data_frames_2)
 
     # Trim first and last 2 seconds from target_j3d to avoid boundary effects
-    trim_seconds = 2
+    trim_seconds = TRIM_SECONDS
     trim_frames = int(trim_seconds * tgt_fps)
-    target_j3d = target_j3d[trim_frames:-trim_frames]
+    if trim_frames > 0:
+        target_j3d = target_j3d[trim_frames:-trim_frames]
     print(f"Trimmed {trim_seconds} seconds ({trim_frames} frames) from start and end of target sequence.")
 
     T1 = pred_j3d.shape[0]
@@ -427,48 +500,65 @@ if __name__ == "__main__":
     print(f"Sequence-level PA-MPJPE: {result_optimal['pa_mpjpe']:.6f}")
     print(f"Sequence-level MPJPE: {result_optimal['mpjpe']:.6f}")
 
-    # ========== DTW COMPUTATION ==========
-    print(f"\n{'='*60}")
-    print("DTW-based Alignment")
-    print(f"{'='*60}")
-    
-    # 1) Build pairwise PA-MPJPE cost matrix (m)
-    print("\nStep 1: Building pairwise PA-MPJPE cost matrix for DTW...")
-    cost_matrix_start = time.time()
-    C = compute_pairwise_pa_mpjpe_matrix(pred_j3d, target_j3d, pelvis_idxs=[1, 2], device=pred_j3d.device, chunk=None, show_progress=True)
-    cost_matrix_time = time.time() - cost_matrix_start
-    print(f"Cost matrix shape: {C.shape}")
-    print(f"Cost matrix computation time: {cost_matrix_time:.2f} seconds")
-    print(f"Average time per pred frame: {cost_matrix_time/T1*1000:.2f} ms")
+    # ========== DTW COMPUTATION (OPTIONAL, ON OPTIMAL CUT) ==========
+    if args.compute_dtw:
+        print(f"\n{'='*60}")
+        print("DTW-based Alignment (on Optimal Cut)")
+        print(f"{'='*60}")
+        
+        # Use only the optimally aligned segment for DTW
+        pred_j3d_cut = pred_j3d[best_start_idx:best_start_idx+T2]
+        target_j3d_cut = target_j3d
+        
+        # 1) Build pairwise PA-MPJPE cost matrix (m) for the cut segment
+        print("\nStep 1: Building pairwise PA-MPJPE cost matrix for DTW (on optimal cut)...")
+        print(f"  Pred cut: frames {best_start_idx} to {best_start_idx+T2} (length: {T2})")
+        print(f"  Target: frames 0 to {T2} (length: {T2})")
+        
+        cost_matrix_start = time.time()
+        C = compute_pairwise_pa_mpjpe_matrix(pred_j3d_cut, target_j3d_cut, pelvis_idxs=[1, 2], device=pred_j3d.device, chunk=None, show_progress=True)
+        cost_matrix_time = time.time() - cost_matrix_start
+        print(f"Cost matrix shape: {C.shape}")
+        print(f"Cost matrix computation time: {cost_matrix_time:.2f} seconds")
+        print(f"Average time per pred frame: {cost_matrix_time/T2*1000:.2f} ms")
 
-    # 2) Run DTW (optionally set a Sakoe-Chiba band, e.g., band=30)
-    print("\nStep 2: Running DTW algorithm...")
-    dtw_start = time.time()
-    total_cost, path, D = dtw_from_cost_matrix(C, band=None)
-    dtw_time = time.time() - dtw_start
-    
-    # Vectorized computation of average cost along path
-    path_indices = np.array(path)
-    avg_cost_along_path = C[path_indices[:, 0], path_indices[:, 1]].mean()
+        # 2) Run DTW (optionally set a Sakoe-Chiba band, e.g., band=30)
+        print("\nStep 2: Running DTW algorithm...")
+        dtw_start = time.time()
+        total_cost, path, D = dtw_from_cost_matrix(C, band=None)
+        dtw_time = time.time() - dtw_start
+        
+        # Vectorized computation of average cost along path
+        path_indices = np.array(path)
+        avg_cost_along_path = C[path_indices[:, 0], path_indices[:, 1]].mean()
 
-    print(f"DTW computation time: {dtw_time:.2f} seconds")
-    print(f"Total DTW time (cost matrix + algorithm): {cost_matrix_time + dtw_time:.2f} seconds")
+        print(f"DTW computation time: {dtw_time:.2f} seconds")
+        print(f"Total DTW time (cost matrix + algorithm): {cost_matrix_time + dtw_time:.2f} seconds")
 
-    print(f"\n{'='*60}")
-    print("DTW Results:")
-    print(f"{'='*60}")
-    print(f"Total DTW cost: {total_cost:.6f} (sum of PA-MPJPE along path)")
-    print(f"Path length: {len(path)}")
-    print(f"Average PA-MPJPE along DTW path: {avg_cost_along_path:.6f} m")
+        print(f"\n{'='*60}")
+        print("DTW Results:")
+        print(f"{'='*60}")
+        print(f"Total DTW cost: {total_cost:.6f} (sum of PA-MPJPE along path)")
+        print(f"Path length: {len(path)}")
+        print(f"Average PA-MPJPE along DTW path: {avg_cost_along_path:.6f} m")
 
-    # Optional: show best brute-force shift vs DTW average
-    print(f"\n{'='*60}")
-    print("Comparison: Brute-force vs DTW")
-    print(f"{'='*60}")
-    print(f"Best brute-force PA-MPJPE (no warping): {best_pa_mpjpe:.6f} m")
-    print(f"DTW average PA-MPJPE (with warping):    {avg_cost_along_path:.6f} m")
-    print(f"Improvement: {((best_pa_mpjpe - avg_cost_along_path) / best_pa_mpjpe * 100):.2f}%")
-    print(f"{'='*60}")
+        # Optional: show best brute-force shift vs DTW average
+        print(f"\n{'='*60}")
+        print("Comparison: Brute-force vs DTW")
+        print(f"{'='*60}")
+        print(f"Best brute-force PA-MPJPE (no warping): {best_pa_mpjpe:.6f} m")
+        print(f"DTW average PA-MPJPE (with warping):    {avg_cost_along_path:.6f} m")
+        improvement = ((best_pa_mpjpe - avg_cost_along_path) / best_pa_mpjpe * 100) if best_pa_mpjpe > 0 else 0
+        print(f"Improvement: {improvement:.2f}%")
+        print(f"{'='*60}")
+    else:
+        print(f"\n{'='*60}")
+        print("DTW computation skipped (use --compute_dtw to enable)")
+        print(f"{'='*60}")
+        # Set default values for metrics that won't be computed
+        avg_cost_along_path = None
+        total_cost = None
+        path = None
 
     # ========== SAVE RESULTS ==========
     # Save results to a text file in the same directory as gvhmr_1
@@ -477,6 +567,13 @@ if __name__ == "__main__":
     output_dir = gvhmr_1_path.parent
     output_filename = f"alignment_results.txt"
     output_path = output_dir / output_filename
+    
+    # Calculate timing information
+    start_frame = best_start_idx
+    end_frame = best_start_idx + T2
+    start_time_sec = start_frame / tgt_fps
+    end_time_sec = end_frame / tgt_fps
+    duration_sec = (end_frame - start_frame) / tgt_fps
     
     print(f"\n{'='*60}")
     print(f"Saving results to: {output_path}")
@@ -500,11 +597,104 @@ if __name__ == "__main__":
         f.write("BRUTE-FORCE TIME ALIGNMENT (No Warping)\n")
         f.write("="*60 + "\n")
         f.write(f"Best start_idx: {best_start_idx}\n")
+        f.write(f"Start time: {start_time_sec:.3f} seconds\n")
+        f.write(f"End time: {end_time_sec:.3f} seconds\n")
+        f.write(f"Duration: {duration_sec:.3f} seconds\n")
         f.write(f"PA-MPJPE: {best_pa_mpjpe:.6f} m\n")
         f.write(f"MPJPE: {best_mpjpe:.6f} m\n")
         f.write("="*60 + "\n")
         f.write("DTW Result\n")
         f.write("="*60 + "\n")
-        f.write(f"PA-MPJPE (DTW): {avg_cost_along_path:.6f} m\n")
+        if avg_cost_along_path is not None:
+            f.write(f"PA-MPJPE (DTW): {avg_cost_along_path:.6f} m\n")
+        else:
+            f.write("DTW computation skipped\n")
     
     print(f"✓ Results saved successfully to: {output_path}")
+    
+    # ========== SAVE CSV RESULTS ==========
+    csv_output_path = args.csv_output
+    if csv_output_path is None:
+        csv_output_path = output_dir / "alignment_results.csv"
+    else:
+        csv_output_path = pathlib.Path(csv_output_path)
+    
+    print(f"\n{'='*60}")
+    print(f"Saving CSV results to: {csv_output_path}")
+    print(f"{'='*60}")
+    
+    # Prepare metrics dictionary
+    metrics = {
+        'gvhmr_1': str(args.gvhmr_1),
+        'gvhmr_2': str(args.gvhmr_2),
+        'frames_gvhmr_1': T1,
+        'frames_gvhmr_2': T2,
+        'target_fps': tgt_fps,
+        'best_start_idx': best_start_idx,
+        'best_end_idx': end_frame,
+        'start_time_sec': start_time_sec,
+        'end_time_sec': end_time_sec,
+        'duration_sec': duration_sec,
+        'pa_mpjpe': best_pa_mpjpe,
+        'mpjpe': best_mpjpe,
+        'pa_mpjpe_dtw': avg_cost_along_path if avg_cost_along_path is not None else '',
+        'dtw_total_cost': total_cost if total_cost is not None else '',
+        'dtw_path_length': len(path) if path is not None else '',
+    }
+    
+    # Write to CSV
+    file_exists = csv_output_path.exists()
+    with open(csv_output_path, 'a', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=metrics.keys())
+        
+        # Write header if file doesn't exist
+        if not file_exists:
+            writer.writeheader()
+        
+        writer.writerow(metrics)
+    
+    print(f"✓ CSV results saved successfully to: {csv_output_path}")
+    
+    # ========== CUT VIDEOS (OPTIONAL) ==========
+    if args.cut_videos:
+        print(f"\n{'='*60}")
+        print("Cutting Videos Based on Optimal Alignment")
+        print(f"{'='*60}")
+        
+        print(f"\nVideo cutting parameters:")
+        print(f"  Start frame: {start_frame}")
+        print(f"  End frame: {end_frame}")
+        print(f"  Start time: {start_time_sec:.3f} seconds")
+        print(f"  Duration: {duration_sec:.3f} seconds")
+        print(f"  FPS: {tgt_fps}")
+        
+        # Get the directory where gvhmr_1 file is located
+        gvhmr_1_dir = pathlib.Path(args.gvhmr_1).parent
+        
+        # Process each video
+        for video_name in args.video_names:
+            input_video = gvhmr_1_dir / video_name
+            
+            if not input_video.exists():
+                print(f"\n⚠ Warning: Video file not found: {input_video}")
+                continue
+            
+            # Create output filename with _cut suffix
+            output_video = gvhmr_1_dir / f"{input_video.stem}_cut{input_video.suffix}"
+            
+            print(f"\nProcessing {video_name}...")
+            print(f"  Input: {input_video}")
+            print(f"  Output: {output_video}")
+            
+            success = cut_video_with_ffmpeg(input_video, output_video, start_frame, end_frame, tgt_fps)
+            
+            if success:
+                print(f"  ✓ Successfully created: {output_video}")
+            else:
+                print(f"  ✗ Failed to create: {output_video}")
+        
+        print(f"\n{'='*60}")
+        print("Video Cutting Complete")
+        print(f"{'='*60}")
+    else:
+        print(f"\nVideo cutting skipped (use --cut_videos to enable)")

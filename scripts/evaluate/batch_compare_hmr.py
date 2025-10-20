@@ -23,7 +23,7 @@ HERE = pathlib.Path(__file__).parent
 COMPARE_SCRIPT = HERE / "compare_two_hmr_mpjpe_timealigned.py"
 
 # Default base directories
-DEFAULT_HUMAN_BASE = "/home/jkim3662/Videos/Switch4EAI/HumanRecordings_GVHMR"
+DEFAULT_HUMAN_BASE = "/home/jkim3662/Videos/Switch4EAI/HumanRecordings_GVHMR/raw/"
 DEFAULT_REFERENCE_BASE = "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GVHMR/cut_mirrored"
 
 
@@ -42,7 +42,7 @@ def find_gvhmr_files(directory):
     return sorted(files)
 
 
-def run_comparison(gvhmr_1, gvhmr_2, python_cmd="python"):
+def run_comparison(gvhmr_1, gvhmr_2, python_cmd="python", csv_output=None, cut_videos=False, video_names=None, compute_dtw=True):
     """
     Run the comparison script for a single pair of files.
     
@@ -50,6 +50,10 @@ def run_comparison(gvhmr_1, gvhmr_2, python_cmd="python"):
         gvhmr_1: Path to first GVHMR file
         gvhmr_2: Path to reference GVHMR file
         python_cmd: Python command to use
+        csv_output: Path to CSV file for metrics (optional)
+        cut_videos: Whether to cut videos based on alignment
+        video_names: List of video filenames to cut (optional)
+        compute_dtw: Whether to compute DTW alignment (default: True)
         
     Returns:
         True if successful, False otherwise
@@ -61,10 +65,28 @@ def run_comparison(gvhmr_1, gvhmr_2, python_cmd="python"):
         "--gvhmr_2", str(gvhmr_2)
     ]
     
+    if csv_output:
+        cmd.extend(["--csv_output", str(csv_output)])
+    
+    if cut_videos:
+        cmd.append("--cut_videos")
+        
+    if video_names:
+        cmd.append("--video_names")
+        cmd.extend(video_names)
+    
+    if not compute_dtw:
+        cmd.append("--no_dtw")
+    
     print(f"\n{'='*80}")
     print(f"Running comparison:")
     print(f"  GVHMR 1: {gvhmr_1}")
     print(f"  GVHMR 2: {gvhmr_2}")
+    if csv_output:
+        print(f"  CSV Output: {csv_output}")
+    if cut_videos:
+        print(f"  Video cutting: Enabled")
+    print(f"  DTW computation: {'Enabled' if compute_dtw else 'Disabled'}")
     print(f"{'='*80}")
     
     try:
@@ -123,10 +145,24 @@ def process_song(gvhmr_dir, reference, args):
     failed = 0
     failed_files = []
     
+    # Prepare CSV output path if needed
+    csv_output = args.csv_output if hasattr(args, 'csv_output') else None
+    cut_videos = args.cut_videos if hasattr(args, 'cut_videos') else False
+    video_names = args.video_names if hasattr(args, 'video_names') else None
+    compute_dtw = args.compute_dtw if hasattr(args, 'compute_dtw') else True
+    
     for i, gvhmr_file in enumerate(gvhmr_files, 1):
         print(f"\n[{i}/{len(gvhmr_files)}] Processing: {gvhmr_file.parent.name}")
         
-        success = run_comparison(gvhmr_file, reference, args.python)
+        success = run_comparison(
+            gvhmr_file, 
+            reference, 
+            args.python,
+            csv_output=csv_output,
+            cut_videos=cut_videos,
+            video_names=video_names,
+            compute_dtw=compute_dtw
+        )
         
         if success:
             successful += 1
@@ -212,6 +248,40 @@ Examples:
         action="store_true",
         help="Print what would be done without running comparisons"
     )
+    parser.add_argument(
+        "--csv_output",
+        type=str,
+        help="Path to CSV file for saving all metrics (will be created if doesn't exist)"
+    )
+    parser.add_argument(
+        "--cut_videos",
+        action="store_true",
+        help="Cut videos based on optimal alignment"
+    )
+    parser.add_argument(
+        "--video_names",
+        type=str,
+        nargs='+',
+        default=['0_input_video.mp4', '1_incam.mp4'],
+        help="Names of video files to cut (default: 0_input_video.mp4 1_incam.mp4)"
+    )
+    parser.add_argument(
+        "--compute_dtw",
+        action="store_true",
+        default=True,
+        help="Compute DTW alignment on the optimal cut segment (default: True)"
+    )
+    parser.add_argument(
+        "--no_dtw",
+        action="store_false",
+        dest="compute_dtw",
+        help="Skip DTW computation"
+    )
+    parser.add_argument(
+        "--pause_iterations",
+        action="store_true",
+        help="Pause after each comparison and ask to continue"
+    )
     
     args = parser.parse_args()
     
@@ -234,7 +304,7 @@ Examples:
                 print(f"{'#'*80}\n")
             
             # Construct paths based on song and person
-            gvhmr_dir = pathlib.Path(f"{DEFAULT_HUMAN_BASE}/{args.person}/{song}_cut")
+            gvhmr_dir = pathlib.Path(f"{DEFAULT_HUMAN_BASE}/{args.person}/{song}")
             reference = pathlib.Path(f"{DEFAULT_REFERENCE_BASE}/{song}_cut/hmr4d_results.pt")
             
             # Check if paths exist

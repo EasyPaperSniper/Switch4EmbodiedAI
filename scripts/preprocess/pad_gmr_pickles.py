@@ -3,12 +3,13 @@ import numpy as np
 
 # Dictionary mapping filename -> frames to pad at the beginning (repeating the first frame)
 start_pads = {
-    "Baby_Shark": 434,
-    "Heart_Of_Glass": 238,
-    "Old_Town_Road": 123,
-    "Padam_Padam": 735,
-    "Soy_Yo": 470,
-    "Unstoppable": 365,
+    # "Baby_Shark": 434,
+    # "Heart_Of_Glass": 238,
+    # "Old_Town_Road": 123,
+    # "Padam_Padam": 735,
+    # "Soy_Yo": 470,
+    # "Unstoppable": 365,
+    "Pink_Venom": 450,
 }
 
 pickle_dir = "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored"

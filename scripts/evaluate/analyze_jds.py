@@ -4,98 +4,16 @@ import matplotlib.pyplot as plt
 from scipy.stats import pearsonr
 
 # === DATASET (from your sheet) ===
-data = {}
-data["Old_Town_Road"] = {
-    "normal_1": {
-        "JDS": {"Jeonghwan": 4262, "Wontaek": 4980},
-        "PA-MPJPE": {"Jeonghwan": 0.118, "Wontaek": 0.089},
-        "MPJPE": {"Jeonghwan": 0.145, "Wontaek": 0.1163},
-        "DTW": {"Jeonghwan": 0.0886, "Wontaek": 0.0785},
-    },
-    "normal_2": {
-        "JDS": {"Jeonghwan": 5382, "Wontaek": 8095},
-        "PA-MPJPE": {"Jeonghwan": 0.115, "Wontaek": 0.086},
-        "MPJPE": {"Jeonghwan": 0.147, "Wontaek": 0.112},
-        "DTW": {"Jeonghwan": 0.0858, "Wontaek": 0.0802},
-    },
-    "normal_3": {
-        "JDS": {"Jeonghwan": 5704, "Wontaek": 8365},
-        "PA-MPJPE": {"Jeonghwan": 0.13, "Wontaek": 0.115},
-        "MPJPE": {"Jeonghwan": 0.159, "Wontaek": 0.14},
-        "DTW": {"Jeonghwan": 0.0873, "Wontaek": 0.081},
-    },
-    "upperbody_1": {
-        "JDS": {"Jeonghwan": 4634},
-        "PA-MPJPE": {"Jeonghwan": 0.124},
-        "MPJPE": {"Jeonghwan": 0.15},
-        "DTW": {"Jeonghwan": 0.103},
-    },
-    "exaggeration_1": {
-        "JDS": {"Jeonghwan": 3366},
-        "PA-MPJPE": {"Jeonghwan": 0.132},
-        "MPJPE": {"Jeonghwan": 0.163},
-        "DTW": {"Jeonghwan": 0.0986},
-    },
-    "controllerflip_1": {
-        "JDS": {"Jeonghwan": 5250},
-        "PA-MPJPE": {"Jeonghwan": 0.125},
-        "MPJPE": {"Jeonghwan": 0.157},
-        "DTW": {"Jeonghwan": 0.0898},
-    },
-    "controllerarm_1": {
-        "JDS": {"Jeonghwan": 5688},
-        "PA-MPJPE": {"Jeonghwan": 0.1222},
-        "MPJPE": {"Jeonghwan": 0.161},
-        "DTW": {"Jeonghwan": 0.0868},
-    },
-}
+from data.jds_scores import data as jds_scores
 
 
-data["Unstoppable"] = {
-    "normal_1": {
-        "JDS": {"Jeonghwan": 11750},
-        "PA-MPJPE": {"Jeonghwan": 0.107},
-        "MPJPE": {"Jeonghwan": 0.142},
-        "PA-MPJPE(DTW)": {"Jeonghwan": 0.0938},
-        # No plain DTW provided for normal_1 in your update
-    },
-    "normal_2": {
-        "JDS": {"Jeonghwan": 11664},
-        "PA-MPJPE": {"Jeonghwan": 0.109},
-        "MPJPE": {"Jeonghwan": 0.145},
-        "DTW": {"Jeonghwan": 0.0956},
-    },
-    "normal_3": {
-        "JDS": {"Jeonghwan": 12191},
-        "PA-MPJPE": {"Jeonghwan": 0.107},
-        "MPJPE": {"Jeonghwan": 0.145},
-        "DTW": {"Jeonghwan": 0.102},
-    },
-    "upperbody_1": {
-        "JDS": {"Jeonghwan": 12048},
-        "PA-MPJPE": {"Jeonghwan": 0.12},
-        "MPJPE": {"Jeonghwan": 0.158},
-        "DTW": {"Jeonghwan": 0.114},
-    },
-    "exaggeration_1": {
-        "JDS": {"Jeonghwan": 7373},
-        "PA-MPJPE": {"Jeonghwan": 0.122},
-        "MPJPE": {"Jeonghwan": 0.161},
-        "DTW": {"Jeonghwan": 0.11},
-    },
-    "controllerflip_1": {
-        "JDS": {"Jeonghwan": 8650},
-        "PA-MPJPE": {"Jeonghwan": 0.113},
-        "MPJPE": {"Jeonghwan": 0.148},
-        "DTW": {"Jeonghwan": 0.103},
-    },
-    "controllerarm_1": {
-        "JDS": {"Jeonghwan": 11334},
-        "PA-MPJPE": {"Jeonghwan": 0.103},
-        "MPJPE": {"Jeonghwan": 0.14},
-        "DTW": {"Jeonghwan": 0.0958},
-    },
-}
+# === Loop through data folder and load all metrics similar to batch_compare_all ===
+from scripts.evaluate.batch_compare_all import discover_all_reference_songs
+
+reference_songs = discover_all_reference_songs()
+available_ref_songs = discover_all_reference_songs(reference_base)
+print(f"Available reference songs: {available_ref_songs}")
+
 
 # === Helper function to get DataFrame for a song & person ===
 import os

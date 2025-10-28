@@ -40,13 +40,38 @@ DEFAULT_HUMAN_RECORDINGS_GVHMR_BASE = pathlib.Path("/home/jkim3662/Videos/Switch
 
 # Person name mapping from directory to JDS scores
 PERSON_NAME_MAPPING = {
+    # Directories that match JDS keys map to themselves (in order from jds_scores.py)
     "WT": "WT",
     "MG": "MG",
     "Ross": "Ross",
     "Nitish": "Nitish",
     "Daesol": "Daesol",
-    "JH": "JH"
+    "Rishi": "Rishi",
+    "CH": "CH",
+    "KY": "KY",
+    "Mili": "Mili",
+    "JH": "JH",
+    # Backwards-compatible aliases (if any directory names differ)
+    "Wontaek": "WT",
+    "Morgan": "MG",
 }
+
+# Define color map for persons (match keys in jds_scores.py - all 10 people)
+PERSON_COLORS = {
+    'WT': '#1f77b4',      # blue
+    'MG': '#ff7f0e',      # orange
+    'Ross': '#2ca02c',    # green
+    'Nitish': '#d62728',  # red
+    'Daesol': '#9467bd',  # purple
+    'Rishi': '#8c564b',   # brown
+    'CH': '#e377c2',      # pink
+    'KY': '#7f7f7f',      # gray
+    'Mili': '#bcbd22',    # yellow-green
+    'JH': '#17becf'       # cyan
+}
+
+
+
 
 def load_all_csv_files(base_dir):
     """
@@ -203,16 +228,6 @@ def plot_jds_vs_metric_per_song(
     """
     os.makedirs(save_dir, exist_ok=True)
     
-    # Define color map for persons
-    person_colors = {
-        'WT': '#1f77b4',  # blue
-        'MG': '#ff7f0e',   # orange
-        'Ross': '#2ca02c',     # green
-        'Nitish': '#d62728',   # red
-        'Daesol': '#9467bd',   # purple
-        'JH': '#8c564b' # brown
-    }
-    
     # Filter data
     df = merged_df.copy()
     
@@ -253,7 +268,7 @@ def plot_jds_vs_metric_per_song(
         # Plot each person with a different color
         for person in sorted(set(persons)):
             mask = persons == person
-            color = person_colors.get(person, '#7f7f7f')  # default gray if person not in map
+            color = PERSON_COLORS.get(person, '#7f7f7f')  # default gray if person not in map
             plt.scatter(jds_values[mask], metric_values[mask], 
                        s=50, alpha=0.7, color=color, label=None)
         
@@ -345,15 +360,6 @@ def plot_hand_vs_arm_jds(
         'Unstoppable': '#9467bd',     # purple
     }
     
-    person_colors = {
-        'WT': '#1f77b4',  # blue
-        'MG': '#ff7f0e',   # orange
-        'Ross': '#2ca02c',     # green
-        'Nitish': '#d62728',   # red
-        'Daesol': '#9467bd',   # purple
-        'JH': '#8c564b' # brown
-    }
-    
     # Filter data
     df = merged_df.copy()
     
@@ -389,7 +395,7 @@ def plot_hand_vs_arm_jds(
         categories = songs
         category_set = sorted(set(songs))
     else:  # color by person
-        color_map = person_colors
+        color_map = PERSON_COLORS
         categories = persons
         category_set = sorted(set(persons))
     
@@ -509,16 +515,6 @@ def plot_metric_vs_jds_all_songs_subplots(
         print(f"[skip] No songs found for {metric_column} vs {jds_column}")
         return
     
-    # Person colors
-    person_colors = {
-        'Daesol': '#1f77b4',
-        'MG': '#ff7f0e',
-        'Nitish': '#2ca02c',
-        'Ross': '#d62728',
-        'WT': '#9467bd',
-        'JH': '#8c564b',
-    }
-    
     # Create subplots (1 row, n_songs columns)
     fig, axes = plt.subplots(1, n_songs, figsize=(5*n_songs, 5), sharey=False)
     if n_songs == 1:
@@ -544,7 +540,7 @@ def plot_metric_vs_jds_all_songs_subplots(
         # Plot points colored by person
         for person in sorted(set(persons)):
             person_mask = persons == person
-            color = person_colors.get(person, '#7f7f7f')
+            color = PERSON_COLORS.get(person, '#7f7f7f')
             ax.scatter(jds_values[person_mask], metric_values[person_mask], 
                       s=60, alpha=0.6, color=color, edgecolors='black', linewidth=0.5)
         
@@ -579,8 +575,8 @@ def plot_metric_vs_jds_all_songs_subplots(
     
     # Legend for person colors
     from matplotlib.patches import Patch
-    legend_elements = [Patch(facecolor=person_colors[p], label=p, alpha=0.6, edgecolor='black') 
-                      for p in sorted(person_colors.keys()) if p in df['person'].values]
+    legend_elements = [Patch(facecolor=PERSON_COLORS[p], label=p, alpha=0.6, edgecolor='black') 
+                      for p in sorted(PERSON_COLORS.keys()) if p in df['person'].values]
     fig.legend(handles=legend_elements, loc='upper right', 
               title='Person', fontsize=9, framealpha=0.9)
     
@@ -618,7 +614,7 @@ def plot_jds_normal_vs_upperbody_all_songs(
     os.makedirs(save_dir, exist_ok=True)
     
     # Person colors
-    person_colors = {
+    PERSON_COLORS = {
         'WT': '#1f77b4',  # blue
         'MG': '#ff7f0e',   # orange
         'Ross': '#2ca02c',     # green
@@ -693,7 +689,7 @@ def plot_jds_normal_vs_upperbody_all_songs(
             for _, row in data.iterrows():
                 person = row['person']
                 jds_val = row[jds_column]
-                color = person_colors.get(person, '#7f7f7f')
+                color = PERSON_COLORS.get(person, '#7f7f7f')
                 x = i + np.random.normal(0, 0.05)  # Jitter
                 ax.scatter(x, jds_val, alpha=0.6, s=50, color=color, 
                           edgecolors='black', linewidth=0.5, zorder=3)
@@ -741,8 +737,8 @@ def plot_jds_normal_vs_upperbody_all_songs(
     
     # Legend for person colors
     from matplotlib.patches import Patch
-    legend_elements = [Patch(facecolor=person_colors[p], label=p, alpha=0.6, edgecolor='black') 
-                      for p in sorted(person_colors.keys()) if p in df['person'].values]
+    legend_elements = [Patch(facecolor=PERSON_COLORS[p], label=p, alpha=0.6, edgecolor='black') 
+                      for p in sorted(PERSON_COLORS.keys()) if p in df['person'].values]
     fig.legend(handles=legend_elements, loc='upper right', 
               title='Person', fontsize=9, framealpha=0.9)
     

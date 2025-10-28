@@ -24,6 +24,89 @@ def root_center(poses, pelvis_idxs=[1, 2]):
     pred_pelvis = poses[:, pelvis_idxs].mean(dim=1, keepdims=True).clone()
     return poses - pred_pelvis                                     # (T,J,3)
 
+
+def compute_velocity(data, fps=30.0):
+    """
+    Compute velocity using central finite differences.
+    
+    Args:
+        data: torch.Tensor of shape (T, ...) where T is time dimension
+        fps: frames per second for time normalization
+        
+    Returns:
+        velocity: torch.Tensor of shape (T, ...) in units/second
+    """
+    dt = 1.0 / fps
+    velocity = torch.zeros_like(data)
+    
+    # Forward difference for first frame
+    velocity[0] = (data[1] - data[0]) / dt
+    
+    # Central difference for middle frames
+    velocity[1:-1] = (data[2:] - data[:-2]) / (2 * dt)
+    
+    # Backward difference for last frame
+    velocity[-1] = (data[-1] - data[-2]) / dt
+    
+    return velocity
+
+
+def compute_acceleration(data, fps=30.0):
+    """
+    Compute acceleration using central finite differences on velocity.
+    
+    Args:
+        data: torch.Tensor of shape (T, ...) where T is time dimension
+        fps: frames per second for time normalization
+        
+    Returns:
+        acceleration: torch.Tensor of shape (T, ...) in units/second^2
+    """
+    velocity = compute_velocity(data, fps)
+    acceleration = compute_velocity(velocity, fps)  # velocity of velocity
+    return acceleration
+
+
+def compute_kinematic_metrics(pred_data, target_data, fps=30.0, metric_name="position"):
+    """
+    Compute velocity and acceleration errors between predicted and target sequences.
+    
+    Args:
+        pred_data: torch.Tensor of shape (T, J, 3) or (T, num_params)
+        target_data: torch.Tensor of shape (T, J, 3) or (T, num_params)
+        fps: frames per second
+        metric_name: name for logging (e.g., "position", "joint_angle")
+        
+    Returns:
+        dict with velocity and acceleration metrics
+    """
+    # Compute velocities
+    pred_vel = compute_velocity(pred_data, fps)
+    target_vel = compute_velocity(target_data, fps)
+    
+    # Compute accelerations
+    pred_acc = compute_acceleration(pred_data, fps)
+    target_acc = compute_acceleration(target_data, fps)
+    
+    # Compute errors (L2 norm across last dimensions)
+    vel_error = torch.sqrt(((pred_vel - target_vel) ** 2).sum(dim=-1))  # (T, J) or (T,)
+    acc_error = torch.sqrt(((pred_acc - target_acc) ** 2).sum(dim=-1))  # (T, J) or (T,)
+    
+    # If we have joint dimension, average over joints
+    if vel_error.ndim > 1:
+        vel_error = vel_error.mean(dim=-1)  # (T,)
+        acc_error = acc_error.mean(dim=-1)  # (T,)
+    
+    # Compute mean and std
+    metrics = {
+        f'{metric_name}_velocity_error_mean': vel_error.mean().item(),
+        f'{metric_name}_velocity_error_std': vel_error.std().item(),
+        f'{metric_name}_acceleration_error_mean': acc_error.mean().item(),
+        f'{metric_name}_acceleration_error_std': acc_error.std().item(),
+    }
+    
+    return metrics
+
 # ---------- Per-Frame Procrustes (similarity) alignment via Kabsch + scale ----------
 def compute_jpe(S1, S2):
     # S1, S2: (frames, num_joints, 3)
@@ -146,13 +229,17 @@ def batch_compute_similarity_transform_torch(S1, S2):
     return S1_hat
 
 # ---------- Main metric function ----------
-def compute_perjoint_metrics(pred_j3d, target_j3d, pelvis_idxs=[1, 2]):
+def compute_perjoint_metrics(pred_j3d, target_j3d, pelvis_idxs=[1, 2], fps=30.0):
     """
     seq1, seq2: (T, J, 3), (T, J, 3) in same joint order and units (e.g., m)
     Returns:
       {
         'pa_mpjpe': float, # mean per-joint position error after global PA
         'mpjpe': float,    # mean per-joint position error only with pelvis alignment
+        'position_velocity_error_mean': float, # mean velocity error (m/s)
+        'position_velocity_error_std': float,
+        'position_acceleration_error_mean': float, # mean acceleration error (m/s^2)
+        'position_acceleration_error_std': float,
       }
     
     Note: For optimal performance, pass tensors directly to avoid repeated conversions.
@@ -164,6 +251,10 @@ def compute_perjoint_metrics(pred_j3d, target_j3d, pelvis_idxs=[1, 2]):
         pred_j3d = torch.tensor(pred_j3d, dtype=torch.float32)
     if not torch.is_tensor(target_j3d):
         target_j3d = torch.tensor(target_j3d, dtype=torch.float32)
+
+    # Store original data for kinematic analysis
+    pred_j3d_original = pred_j3d.clone()
+    target_j3d_original = target_j3d.clone()
 
     # (Optional) root-center (subtract the root joint position from all joints)
     # pred_j3d = root_center(pred_j3d, pelvis_idxs=pelvis_idxs)
@@ -181,10 +272,17 @@ def compute_perjoint_metrics(pred_j3d, target_j3d, pelvis_idxs=[1, 2]):
     pa_mpjpe = compute_jpe(S1_hat, target_j3d).mean() # (num_frames,) -> float
     mpjpe = compute_jpe(pred_j3d, target_j3d).mean() # (num_frames,) -> float
     
+    # Compute kinematic metrics (velocity and acceleration) on aligned data
+    kinematic_metrics = compute_kinematic_metrics(pred_j3d, target_j3d, fps=fps, metric_name="position")
+    
     perjoint_metrics = { # per-joint metrics in numpy array
         "pa_mpjpe": pa_mpjpe,
         "mpjpe": mpjpe,
     }
+    
+    # Add kinematic metrics
+    perjoint_metrics.update(kinematic_metrics)
+    
     return perjoint_metrics
 
 
@@ -495,10 +593,45 @@ if __name__ == "__main__":
     
     # Compute and display final result with optimal alignment
     pred_j3d_optimal = pred_j3d[best_start_idx:best_start_idx+T2]
-    result_optimal = compute_perjoint_metrics(pred_j3d_optimal, target_j3d, pelvis_idxs=[1,2])
+    result_optimal = compute_perjoint_metrics(pred_j3d_optimal, target_j3d, pelvis_idxs=[1,2], fps=tgt_fps)
     print("\nFinal verification:")
     print(f"Sequence-level PA-MPJPE: {result_optimal['pa_mpjpe']:.6f}")
     print(f"Sequence-level MPJPE: {result_optimal['mpjpe']:.6f}")
+    print(f"Position Velocity Error: {result_optimal['position_velocity_error_mean']:.6f} ± {result_optimal['position_velocity_error_std']:.6f} m/s")
+    print(f"Position Acceleration Error: {result_optimal['position_acceleration_error_mean']:.6f} ± {result_optimal['position_acceleration_error_std']:.6f} m/s²")
+    
+    # Also compute joint angle metrics if available
+    try:
+        # Extract body pose parameters (joint angles) from SMPL data
+        # smplx_data_1 contains 'body_pose' which is in axis-angle format
+        pred_body_pose = torch.tensor(smplx_data_1['body_pose'], dtype=torch.float32)  # (T1, 63) for SMPL or (T1, 21*3)
+        target_body_pose = torch.tensor(smplx_data_2['body_pose'], dtype=torch.float32)  # (T2, 63)
+        
+        # Align the body poses based on optimal time alignment
+        pred_body_pose_optimal = pred_body_pose[best_start_idx:best_start_idx+T2]
+        
+        # Compute kinematic metrics for joint angles
+        joint_angle_metrics = compute_kinematic_metrics(
+            pred_body_pose_optimal, 
+            target_body_pose[:T2], 
+            fps=tgt_fps, 
+            metric_name="joint_angle"
+        )
+        
+        print(f"Joint Angle Velocity Error: {joint_angle_metrics['joint_angle_velocity_error_mean']:.6f} ± {joint_angle_metrics['joint_angle_velocity_error_std']:.6f} rad/s")
+        print(f"Joint Angle Acceleration Error: {joint_angle_metrics['joint_angle_acceleration_error_mean']:.6f} ± {joint_angle_metrics['joint_angle_acceleration_error_std']:.6f} rad/s²")
+        
+        # Merge joint angle metrics into result
+        result_optimal.update(joint_angle_metrics)
+    except Exception as e:
+        print(f"\nWarning: Could not compute joint angle metrics: {e}")
+        # Add placeholder values
+        result_optimal.update({
+            'joint_angle_velocity_error_mean': None,
+            'joint_angle_velocity_error_std': None,
+            'joint_angle_acceleration_error_mean': None,
+            'joint_angle_acceleration_error_std': None,
+        })
 
     # ========== DTW COMPUTATION (OPTIONAL, ON OPTIMAL CUT) ==========
     if args.compute_dtw:
@@ -602,6 +735,14 @@ if __name__ == "__main__":
         f.write(f"Duration: {duration_sec:.3f} seconds\n")
         f.write(f"PA-MPJPE: {best_pa_mpjpe:.6f} m\n")
         f.write(f"MPJPE: {best_mpjpe:.6f} m\n")
+        f.write(f"Position Velocity Error: {result_optimal['position_velocity_error_mean']:.6f} ± {result_optimal['position_velocity_error_std']:.6f} m/s\n")
+        f.write(f"Position Acceleration Error: {result_optimal['position_acceleration_error_mean']:.6f} ± {result_optimal['position_acceleration_error_std']:.6f} m/s²\n")
+        
+        # Add joint angle metrics if available
+        if result_optimal.get('joint_angle_velocity_error_mean') is not None:
+            f.write(f"Joint Angle Velocity Error: {result_optimal['joint_angle_velocity_error_mean']:.6f} ± {result_optimal['joint_angle_velocity_error_std']:.6f} rad/s\n")
+            f.write(f"Joint Angle Acceleration Error: {result_optimal['joint_angle_acceleration_error_mean']:.6f} ± {result_optimal['joint_angle_acceleration_error_std']:.6f} rad/s²\n")
+        
         f.write("="*60 + "\n")
         f.write("DTW Result\n")
         f.write("="*60 + "\n")
@@ -637,23 +778,25 @@ if __name__ == "__main__":
         'duration_sec': duration_sec,
         'pa_mpjpe': best_pa_mpjpe,
         'mpjpe': best_mpjpe,
+        'position_velocity_error_mean': result_optimal['position_velocity_error_mean'],
+        'position_velocity_error_std': result_optimal['position_velocity_error_std'],
+        'position_acceleration_error_mean': result_optimal['position_acceleration_error_mean'],
+        'position_acceleration_error_std': result_optimal['position_acceleration_error_std'],
+        'joint_angle_velocity_error_mean': result_optimal.get('joint_angle_velocity_error_mean', ''),
+        'joint_angle_velocity_error_std': result_optimal.get('joint_angle_velocity_error_std', ''),
+        'joint_angle_acceleration_error_mean': result_optimal.get('joint_angle_acceleration_error_mean', ''),
+        'joint_angle_acceleration_error_std': result_optimal.get('joint_angle_acceleration_error_std', ''),
         'pa_mpjpe_dtw': avg_cost_along_path if avg_cost_along_path is not None else '',
         'dtw_total_cost': total_cost if total_cost is not None else '',
         'dtw_path_length': len(path) if path is not None else '',
     }
-    
-    # Write to CSV
-    file_exists = csv_output_path.exists()
-    with open(csv_output_path, 'a', newline='') as csvfile:
+    # Overwrite CSV file (use 'w' mode instead of 'a')
+    with open(csv_output_path, 'w', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=metrics.keys())
-        
-        # Write header if file doesn't exist
-        if not file_exists:
-            writer.writeheader()
-        
+        writer.writeheader()
         writer.writerow(metrics)
-    
-    print(f"✓ CSV results saved successfully to: {csv_output_path}")
+
+    print(f"✓ CSV results overwritten successfully to: {csv_output_path}")
     
     # ========== CUT VIDEOS (OPTIONAL) ==========
     if args.cut_videos:

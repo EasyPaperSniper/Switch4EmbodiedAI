@@ -273,7 +273,9 @@ def compute_perjoint_metrics(pred_j3d, target_j3d, pelvis_idxs=[1, 2], fps=30.0)
     mpjpe = compute_jpe(pred_j3d, target_j3d).mean() # (num_frames,) -> float
     
     # Compute kinematic metrics (velocity and acceleration) on aligned data
-    kinematic_metrics = compute_kinematic_metrics(pred_j3d, target_j3d, fps=fps, metric_name="position")
+    # kinematic_metrics = compute_kinematic_metrics(pred_j3d, target_j3d, fps=fps, metric_name="position")
+    # Compute using un-shifted original data for accurate kinematics(velocity and acceleration)
+    kinematic_metrics = compute_kinematic_metrics(pred_j3d_original, target_j3d_original, fps=fps, metric_name="position")
     
     perjoint_metrics = { # per-joint metrics in numpy array
         "pa_mpjpe": pa_mpjpe,

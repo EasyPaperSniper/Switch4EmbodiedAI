@@ -1,0 +1,76 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "compare_two_hmr_mpjpe",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "scripts/evaluate/compare_two_hmr_mpjpe.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--gvhmr_1",
+                "/home/jkim3662/Videos/Switch4EAI/HumanRecordings_GVHMR/Wontaek/Old_Town_Road_cut/Old_Town_Road_Wontaek_normal_1_cut/hmr4d_results.pt",
+                "--gvhmr_2",
+                "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GVHMR/Old_Town_Road_cut/hmr4d_results.pt",
+            ]
+        },
+        // {  // Deprecated as of 2025-10-20
+        //     "name": "compare_two_hmr_mpjpe_timealigned",
+        //     "type": "debugpy",
+        //     "request": "launch",
+        //     "program": "scripts/evaluate/compare_two_hmr_mpjpe_timealigned.py",
+        //     "console": "integratedTerminal",
+        //     "args": [
+        //         "--gvhmr_1",
+        //         "/home/jkim3662/Videos/Switch4EAI/HumanRecordings_GVHMR/Wontaek/Old_Town_Road_cut/Old_Town_Road_Wontaek_normal_1_cut/hmr4d_results.pt",
+        //         "--gvhmr_2",
+        //         "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GVHMR/Old_Town_Road_cut/hmr4d_results.pt",
+        //     ]
+        // },
+        {
+            "name": "compare_two_hmr_mpjpe_timealigned with cutting",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "scripts/evaluate/compare_two_hmr_mpjpe_timealigned.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--gvhmr_1",
+                "/home/jkim3662/Videos/Switch4EAI/HumanRecordings_GVHMR/raw/WT/Old_Town_Road/Old_Town_Road_WT_normal_1/hmr4d_results.pt",
+                "--gvhmr_2",
+                "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GVHMR/cut_mirrored/Old_Town_Road_cut/hmr4d_results.pt",
+                // "--csv_output",
+                "--cut_videos",
+                "--no_dtw",
+            ]
+        },
+        {
+            "name": "batch_compare_hmr",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "scripts/evaluate/batch_compare_hmr.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--song",
+                "Old_Town_Road",
+                "Unstoppable",
+                "--person",
+                "Jeonghwan",
+            ]
+        },
+        {
+            "name": "batch_compare_all no_dtw",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "scripts/evaluate/batch_compare_all.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--no_dtw",
+                "--cut_videos",
+            ]
+        },
+    ]
+}

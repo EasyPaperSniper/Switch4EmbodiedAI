@@ -128,6 +128,8 @@ def load_all_csv_files(base_dir):
                         'dtw_total_cost': row.get('dtw_total_cost', None),
                         'dtw_path_length': row.get('dtw_path_length', None),
                         'duration_sec': row.get('duration_sec', None),
+                        'position_velocity_error_mean': row.get('position_velocity_error_mean', None),
+                        'position_acceleration_error_mean': row.get('position_acceleration_error_mean', None),
                         'csv_path': csv_file
                     })
                     
@@ -520,7 +522,13 @@ def plot_metric_vs_jds_all_songs_subplots(
     if n_songs == 1:
         axes = [axes]
     
-    metric_name = metric_column.upper().replace('_', '-')
+    # Format metric name for display
+    if 'velocity' in metric_column:
+        metric_name = 'MPJVE'  # Mean Per Joint Velocity Error
+    elif 'acceleration' in metric_column:
+        metric_name = 'MPJAE'  # Mean Per Joint Acceleration Error
+    else:
+        metric_name = metric_column.upper().replace('_', '-')
     jds_type = "Hand" if jds_column == 'jds_hand' else "Arm"
     
     for idx, (song, ax) in enumerate(zip(songs, axes)):
@@ -827,10 +835,15 @@ plot_hand_vs_arm_jds(
 
 # Metric vs JDS comparison - all songs as subplots
 print("\n--- Metric vs JDS - All songs as subplots ---")
-for metric in ['dtw', 'pa_mpjpe', 'mpjpe']:
+for metric in ['dtw', 'pa_mpjpe', 'mpjpe', 'position_velocity_error_mean', 'position_acceleration_error_mean']:
     for jds_type in ['jds_hand', 'jds_arm']:
         jds_name = "Hand" if jds_type == 'jds_hand' else "Arm"
-        print(f"  Generating {metric.upper()} vs JDS ({jds_name}) subplots...")
+        metric_display = metric.upper().replace('_', '-')
+        if 'velocity' in metric:
+            metric_display = 'MPJVE'
+        elif 'acceleration' in metric:
+            metric_display = 'MPJAE'
+        print(f"  Generating {metric_display} vs JDS ({jds_name}) subplots...")
         plot_metric_vs_jds_all_songs_subplots(
             merged_data_with_jds,
             metric_column=metric,
@@ -866,7 +879,11 @@ for metric_col, jds_col, metric_name, jds_type in [
     ('dtw', 'jds_hand', 'DTW', 'Hand'),
     ('pa_mpjpe', 'jds_hand', 'PA-MPJPE', 'Hand'),
     ('dtw', 'jds_arm', 'DTW', 'Arm'),
-    ('pa_mpjpe', 'jds_arm', 'PA-MPJPE', 'Arm')
+    ('pa_mpjpe', 'jds_arm', 'PA-MPJPE', 'Arm'),
+    ('position_velocity_error_mean', 'jds_hand', 'MPJVE', 'Hand'),
+    ('position_velocity_error_mean', 'jds_arm', 'MPJVE', 'Arm'),
+    ('position_acceleration_error_mean', 'jds_hand', 'MPJAE', 'Hand'),
+    ('position_acceleration_error_mean', 'jds_arm', 'MPJAE', 'Arm')
 ]:
     df = merged_data_with_jds.copy()
     df['run_type'] = df['condition'].str.split('_').str[0]

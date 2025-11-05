@@ -907,3 +907,1162 @@ for metric_col, jds_col, metric_name, jds_type in [
 print("\n" + "="*80)
 print("Legend: *** p<0.001, ** p<0.01, * p<0.05")
 print("="*80)
+
+
+# ============================================================================
+# PAPER RESULTS GENERATION
+# ============================================================================
+print("\n" + "="*80)
+print("PAPER RESULTS GENERATION")
+print("="*80)
+
+import seaborn as sns
+import pingouin as pg
+from scipy.stats import ttest_rel, wilcoxon
+from scipy.stats import shapiro
+
+# Set seaborn style for all paper plots
+sns.set_theme(style="whitegrid", font_scale=1.1)
+
+# Define difficulty levels for songs
+SONG_DIFFICULTY = {
+    'Old_Town_Road': 1,
+    'Heart_Of_Glass': 2,
+    'Unstoppable': 2,
+    'Padam_Padam': 3,
+    'Pink_Venom': 4
+}
+
+# Helper function to format song names with level
+def format_song_with_level(song_name, multiline=False):
+    """Format song name with level information."""
+    song_display = song_name.replace('_', ' ')
+    level = SONG_DIFFICULTY.get(song_name, None)
+    if level:
+        if multiline:
+            return f"{song_display}\n(Lvl {level})"
+        else:
+            return f"{song_display} (Lvl {level})"
+    return song_display
+
+# ────────────────────────────────────────────────────────────────────────────
+# 1. RELIABILITY
+# ────────────────────────────────────────────────────────────────────────────
+print("\n" + "-"*80)
+print("1. RELIABILITY ANALYSIS")
+print("-"*80)
+
+def calculate_reliability():
+    """Calculate test-retest reliability using ICC and CV."""
+    
+    # Filter to normal runs only (exclude upperbody)
+    df = merged_data_with_jds.copy()
+    df['run_type'] = df['condition'].str.split('_').str[0]
+    df = df[df['run_type'] == 'normal'].copy()
+    
+    reliability_results = []
+    
+    for song in sorted(df['song'].unique()):
+        for jds_col, jds_name in [('jds_hand', 'Hand'), ('jds_arm', 'Arm')]:
+            song_df = df[df['song'] == song]
+            song_df = song_df[song_df[jds_col].notna()]
+            
+            if len(song_df) < 3:  # Need at least 3 observations for ICC
+                continue
+            
+            # Prepare data for ICC: targets (persons), raters (repeats)
+            # We need to pivot data: rows=persons, columns=repeats
+            song_df = song_df.copy()
+            song_df['repeat_num'] = song_df.groupby('person').cumcount() + 1
+            
+            # Create pivot table
+            pivot_df = song_df.pivot_table(
+                index='person',
+                columns='repeat_num',
+                values=jds_col,
+                aggfunc='first'
+            )
+            
+            # Need at least 2 repeats per person for ICC
+            if pivot_df.shape[1] < 2:
+                continue
+            
+            # Reshape for pingouin (needs long format: targets, raters, ratings)
+            icc_data = []
+            for person in pivot_df.index:
+                for repeat in pivot_df.columns:
+                    if pd.notna(pivot_df.loc[person, repeat]):
+                        icc_data.append({
+                            'targets': person,
+                            'raters': f'repeat_{repeat}',
+                            'ratings': pivot_df.loc[person, repeat]
+                        })
+            
+            if len(icc_data) < 6:  # Need sufficient data points
+                continue
+            
+            icc_df = pd.DataFrame(icc_data)
+            
+            # Calculate ICC(3,1) and ICC(3,k)
+            try:
+                icc_results = pg.intraclass_corr(
+                    data=icc_df,
+                    targets='targets',
+                    raters='raters',
+                    ratings='ratings'
+                )
+                
+                # Extract ICC(3,1) - two-way mixed, single measures, consistency
+                icc3_1_row = icc_results[icc_results['Type'] == 'ICC3']
+                icc3_1 = icc3_1_row['ICC'].values[0] if len(icc3_1_row) > 0 else np.nan
+                
+                # Extract ICC(3,k) - two-way mixed, average measures, consistency
+                icc3_k_row = icc_results[icc_results['Type'] == 'ICC3k']
+                icc3_k = icc3_k_row['ICC'].values[0] if len(icc3_k_row) > 0 else np.nan
+                
+            except Exception as e:
+                print(f"  Warning: ICC calculation failed for {song} / {jds_name}: {e}")
+                icc3_1 = np.nan
+                icc3_k = np.nan
+            
+            # Calculate Coefficient of Variation per person, then average
+            cv_values = []
+            for person in song_df['person'].unique():
+                person_scores = song_df[song_df['person'] == person][jds_col].values
+                if len(person_scores) >= 2:
+                    mean_score = np.mean(person_scores)
+                    std_score = np.std(person_scores, ddof=1)
+                    if mean_score > 0:
+                        cv = (std_score / mean_score) * 100
+                        cv_values.append(cv)
+            
+            mean_cv = np.mean(cv_values) if len(cv_values) > 0 else np.nan
+            
+            n_subjects = len(song_df['person'].unique())
+            
+            reliability_results.append({
+                'Song': format_song_with_level(song),
+                'JDS_Type': jds_name,
+                'ICC(3,1)': icc3_1,
+                'ICC(3,k)': icc3_k,
+                'CV(%)': mean_cv,
+                'n_subjects': n_subjects
+            })
+    
+    return pd.DataFrame(reliability_results)
+
+# Calculate reliability
+reliability_df = calculate_reliability()
+
+# Sort by song order and filter for Hand JDS only
+song_order = ['Old Town Road (Lvl 1)', 'Heart Of Glass (Lvl 2)', 'Unstoppable (Lvl 2)', 
+              'Padam Padam (Lvl 3)', 'Pink Venom (Lvl 4)']
+reliability_df['song_order'] = reliability_df['Song'].map({s: i for i, s in enumerate(song_order)})
+reliability_df = reliability_df.sort_values(['song_order', 'JDS_Type']).drop('song_order', axis=1)
+
+# Filter for Hand JDS only and remove JDS_Type column
+reliability_df_hand = reliability_df[reliability_df['JDS_Type'] == 'Hand'].copy()
+reliability_df_hand = reliability_df_hand.drop('JDS_Type', axis=1)
+
+# Remove n_subjects column for paper table (can be mentioned in text)
+reliability_df_paper = reliability_df_hand.drop('n_subjects', axis=1)
+
+print("\nReliability Results (Hand JDS only):")
+print(reliability_df_paper.to_string(index=False))
+
+# Save reliability table
+reliability_df_paper.to_csv('plots/reliability_table.csv', index=False)
+print("\nSaved: plots/reliability_table.csv")
+
+# Save as LaTeX with proper formatting for CVPR 2-column
+# Rename columns to remove underscores
+reliability_df_latex = reliability_df_paper.copy()
+reliability_df_latex.columns = ['Song', 'ICC(3,1)', 'ICC(3,k)', 'CV (%)']
+
+with open('plots/reliability_table.tex', 'w') as f:
+    latex_str = reliability_df_latex.to_latex(
+        index=False,
+        float_format="%.2f",
+        caption="Test-retest reliability of Hand JDS (n=10 subjects, 3 trials each).",
+        label="tab:reliability",
+        column_format='l|ccc',
+        escape=False
+    )
+    f.write(latex_str)
+print("Saved: plots/reliability_table.tex")
+
+# Plot ICC(3,1) per song
+if len(reliability_df) > 0:
+    fig, ax = plt.subplots(figsize=(8, 5))
+    
+    # Define song order
+    song_order = ['Old Town Road (Lvl 1)', 'Heart Of Glass (Lvl 2)', 'Unstoppable (Lvl 2)', 
+                  'Padam Padam (Lvl 3)', 'Pink Venom (Lvl 4)']
+    
+    # Filter to only songs in data and maintain order
+    songs = [s for s in song_order if s in reliability_df['Song'].values]
+    x = np.arange(len(songs))
+    width = 0.35
+    
+    hand_icc = []
+    arm_icc = []
+    
+    for song in songs:
+        hand_row = reliability_df[(reliability_df['Song'] == song) & (reliability_df['JDS_Type'] == 'Hand')]
+        arm_row = reliability_df[(reliability_df['Song'] == song) & (reliability_df['JDS_Type'] == 'Arm')]
+        
+        hand_icc.append(hand_row['ICC(3,1)'].values[0] if len(hand_row) > 0 else 0)
+        arm_icc.append(arm_row['ICC(3,1)'].values[0] if len(arm_row) > 0 else 0)
+    
+    ax.bar(x - width/2, hand_icc, width, label='Hand JDS', alpha=0.8, color='skyblue', edgecolor='black')
+    ax.bar(x + width/2, arm_icc, width, label='Arm JDS', alpha=0.8, color='salmon', edgecolor='black')
+    
+    # Reference lines for ICC quality
+    ax.axhline(y=0.75, color='orange', linestyle='--', linewidth=1.5, label='Good (ICC=0.75)', alpha=0.7)
+    ax.axhline(y=0.9, color='green', linestyle='--', linewidth=1.5, label='Excellent (ICC=0.90)', alpha=0.7)
+    
+    ax.set_xlabel('Song', fontsize=10, fontweight='bold')
+    ax.set_ylabel('ICC(3,1)', fontsize=10, fontweight='bold')
+    ax.set_title('Test-Retest Reliability: ICC(3,1) by Song', fontsize=11, fontweight='bold')
+    ax.set_xticks(x)
+    # Create multiline labels with smaller font
+    song_labels = [s.replace(' (Lvl ', '\n(Lvl ') for s in songs]
+    ax.set_xticklabels(song_labels, fontsize=7, ha='center')
+    ax.legend(fontsize=8, loc='lower right')
+    ax.set_ylim([0, 1.0])
+    ax.grid(axis='y', alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig('plots/reliability_icc_barplot.png', dpi=150, bbox_inches='tight')
+    plt.close()
+    print("Saved: plots/reliability_icc_barplot.png")
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# 2. VALIDITY
+# ────────────────────────────────────────────────────────────────────────────
+print("\n" + "-"*80)
+print("2. VALIDITY ANALYSIS")
+print("-"*80)
+
+def calculate_validity():
+    """Calculate correlations between JDS and motion metrics."""
+    
+    # Filter to normal runs only
+    df = merged_data_with_jds.copy()
+    df['run_type'] = df['condition'].str.split('_').str[0]
+    df = df[df['run_type'] == 'normal'].copy()
+    
+    validity_results = []
+    
+    metrics = ['dtw', 'mpjpe', 'pa_mpjpe']
+    metric_names = {'dtw': 'DTW', 'mpjpe': 'MPJPE', 'pa_mpjpe': 'PA-MPJPE'}
+    
+    for song in sorted(df['song'].unique()):
+        for metric_col in metrics:
+            for jds_col, jds_name in [('jds_hand', 'Hand'), ('jds_arm', 'Arm')]:
+                song_df = df[df['song'] == song]
+                song_df = song_df[song_df[metric_col].notna() & song_df[jds_col].notna()]
+                
+                if len(song_df) < 3:
+                    continue
+                
+                jds_vals = song_df[jds_col].values
+                metric_vals = song_df[metric_col].values
+                
+                r, p = pearsonr(jds_vals, metric_vals)
+                
+                validity_results.append({
+                    'Song': format_song_with_level(song),
+                    'Metric': metric_names[metric_col],
+                    'JDS_Type': jds_name,
+                    'r': r,
+                    'p': p,
+                    'n': len(song_df)
+                })
+    
+    return pd.DataFrame(validity_results)
+
+# Calculate validity
+validity_df = calculate_validity()
+
+# Sort by song and metric order
+song_order = ['Old Town Road (Lvl 1)', 'Heart Of Glass (Lvl 2)', 'Unstoppable (Lvl 2)', 
+              'Padam Padam (Lvl 3)', 'Pink Venom (Lvl 4)']
+metric_order = ['DTW', 'MPJPE', 'PA-MPJPE']
+validity_df['song_order'] = validity_df['Song'].map({s: i for i, s in enumerate(song_order)})
+validity_df['metric_order'] = validity_df['Metric'].map({m: i for i, m in enumerate(metric_order)})
+validity_df = validity_df.sort_values(['song_order', 'metric_order', 'JDS_Type']).drop(['song_order', 'metric_order'], axis=1)
+
+# Filter for Hand JDS only and remove JDS_Type and n columns
+validity_df_hand = validity_df[validity_df['JDS_Type'] == 'Hand'].copy()
+validity_df_paper = validity_df_hand.drop(['JDS_Type', 'n'], axis=1)
+
+print("\nValidity Results (Hand JDS only):")
+print(validity_df_paper.to_string(index=False))
+
+# Save validity table
+validity_df_paper.to_csv('plots/validity_correlation_table.csv', index=False)
+print("\nSaved: plots/validity_correlation_table.csv")
+
+# Save as LaTeX with proper formatting for CVPR 2-column
+# Column names are already clean (Song, Metric, r, p)
+validity_df_latex = validity_df_paper.copy()
+validity_df_latex.columns = ['Song', 'Metric', 'r', 'p-value']
+
+with open('plots/validity_correlation_table.tex', 'w') as f:
+    latex_str = validity_df_latex.to_latex(
+        index=False,
+        float_format="%.2f",
+        caption="Pearson correlation between Hand JDS and motion metrics (n=30 trials per song).",
+        label="tab:validity",
+        column_format='ll|cc',
+        escape=False
+    )
+    f.write(latex_str)
+print("Saved: plots/validity_correlation_table.tex")
+
+# Create heatmaps for each JDS type
+for jds_name in ['Hand', 'Arm']:
+    jds_validity = validity_df[validity_df['JDS_Type'] == jds_name]
+    
+    if len(jds_validity) == 0:
+        continue
+    
+    # Pivot for heatmap: rows=metrics, columns=songs, values=r
+    heatmap_data = jds_validity.pivot_table(
+        index='Metric',
+        columns='Song',
+        values='r',
+        aggfunc='first'
+    )
+    
+    # Define song order and reindex columns
+    song_order = ['Old Town Road (Lvl 1)', 'Heart Of Glass (Lvl 2)', 'Unstoppable (Lvl 2)', 
+                  'Padam Padam (Lvl 3)', 'Pink Venom (Lvl 4)']
+    existing_songs = [s for s in song_order if s in heatmap_data.columns]
+    heatmap_data = heatmap_data[existing_songs]
+    
+    # Define metric order
+    metric_order = ['DTW', 'MPJPE', 'PA-MPJPE']
+    existing_metrics = [m for m in metric_order if m in heatmap_data.index]
+    heatmap_data = heatmap_data.loc[existing_metrics]
+    
+    # Adjust figure size for 2-column format (narrower width, taller height)
+    fig, ax = plt.subplots(figsize=(7, 4))
+    
+    # Rename columns to use multiline format
+    heatmap_data.columns = [col.replace(' (Lvl ', '\n(Lvl ') for col in heatmap_data.columns]
+    
+    # Create heatmap with diverging colormap centered at 0
+    sns.heatmap(
+        heatmap_data,
+        annot=True,
+        fmt='.2f',
+        cmap='RdBu_r',
+        center=0,
+        vmin=-1,
+        vmax=1,
+        cbar_kws={'label': 'Pearson r', 'shrink': 0.8},
+        linewidths=0.5,
+        linecolor='gray',
+        ax=ax,
+        annot_kws={'fontsize': 11, 'fontweight': 'bold'}
+    )
+    
+    ax.set_title(f'Validity: Correlation between {jds_name} JDS and Motion Metrics',
+                fontsize=12, fontweight='bold', pad=12)
+    ax.set_xlabel('Song', fontsize=11, fontweight='bold')
+    ax.set_ylabel('Metric', fontsize=11, fontweight='bold')
+    ax.tick_params(axis='x', rotation=0, labelsize=9)
+    ax.tick_params(axis='y', rotation=0, labelsize=10)
+    
+    plt.tight_layout()
+    filename = f'plots/validity_heatmap_{jds_name.lower()}.png'
+    plt.savefig(filename, dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"Saved: {filename}")
+
+# Create grouped bar plot showing average |r| per metric
+if len(validity_df) > 0:
+    # Calculate mean and std of |r| per metric and JDS type
+    summary_data = validity_df.groupby(['Metric', 'JDS_Type']).agg({
+        'r': lambda x: np.mean(np.abs(x))
+    }).reset_index()
+    summary_data.rename(columns={'r': 'mean_abs_r'}, inplace=True)
+    
+    # Calculate std of |r|
+    std_data = validity_df.groupby(['Metric', 'JDS_Type']).agg({
+        'r': lambda x: np.std(np.abs(x))
+    }).reset_index()
+    std_data.rename(columns={'r': 'std_abs_r'}, inplace=True)
+    
+    summary_data = summary_data.merge(std_data, on=['Metric', 'JDS_Type'])
+    
+    fig, ax = plt.subplots(figsize=(7, 5))
+    
+    # Define metric order
+    metric_order = ['DTW', 'MPJPE', 'PA-MPJPE']
+    metrics = [m for m in metric_order if m in summary_data['Metric'].values]
+    x = np.arange(len(metrics))
+    width = 0.35
+    
+    hand_data = summary_data[summary_data['JDS_Type'] == 'Hand']
+    arm_data = summary_data[summary_data['JDS_Type'] == 'Arm']
+    
+    hand_means = [hand_data[hand_data['Metric'] == m]['mean_abs_r'].values[0] if len(hand_data[hand_data['Metric'] == m]) > 0 else 0 for m in metrics]
+    hand_stds = [hand_data[hand_data['Metric'] == m]['std_abs_r'].values[0] if len(hand_data[hand_data['Metric'] == m]) > 0 else 0 for m in metrics]
+    
+    arm_means = [arm_data[arm_data['Metric'] == m]['mean_abs_r'].values[0] if len(arm_data[arm_data['Metric'] == m]) > 0 else 0 for m in metrics]
+    arm_stds = [arm_data[arm_data['Metric'] == m]['std_abs_r'].values[0] if len(arm_data[arm_data['Metric'] == m]) > 0 else 0 for m in metrics]
+    
+    ax.bar(x - width/2, hand_means, width, yerr=hand_stds, label='Hand JDS',
+          alpha=0.8, color='skyblue', edgecolor='black', capsize=5)
+    ax.bar(x + width/2, arm_means, width, yerr=arm_stds, label='Arm JDS',
+          alpha=0.8, color='salmon', edgecolor='black', capsize=5)
+    
+    ax.set_xlabel('Motion Metric', fontsize=11, fontweight='bold')
+    ax.set_ylabel('Mean |r| (across songs)', fontsize=11, fontweight='bold')
+    ax.set_title('Validity: Average Correlation Strength by Metric', fontsize=12, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(metrics, fontsize=10)
+    ax.legend(fontsize=9, loc='upper right')
+    ax.grid(axis='y', alpha=0.3)
+    ax.set_ylim([0, 1.0])
+    
+    plt.tight_layout()
+    plt.savefig('plots/validity_summary_barplot.png', dpi=150, bbox_inches='tight')
+    plt.close()
+    print("Saved: plots/validity_summary_barplot.png")
+
+# Correlate mean JDS per song with difficulty level
+print("\n--- JDS vs Song Difficulty ---")
+df_normal = merged_data_with_jds.copy()
+df_normal['run_type'] = df_normal['condition'].str.split('_').str[0]
+df_normal = df_normal[df_normal['run_type'] == 'normal']
+
+for jds_col, jds_name in [('jds_hand', 'Hand'), ('jds_arm', 'Arm')]:
+    song_jds_means = []
+    song_difficulties = []
+    
+    for song in sorted(df_normal['song'].unique()):
+        if song in SONG_DIFFICULTY:
+            song_df = df_normal[df_normal['song'] == song]
+            song_df = song_df[song_df[jds_col].notna()]
+            if len(song_df) > 0:
+                mean_jds = song_df[jds_col].mean()
+                song_jds_means.append(mean_jds)
+                song_difficulties.append(SONG_DIFFICULTY[song])
+    
+    if len(song_jds_means) >= 3:
+        r, p = pearsonr(song_difficulties, song_jds_means)
+        print(f"  {jds_name} JDS vs Difficulty: r={r:.3f}, p={p:.4f}")
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# 3. SENSITIVITY
+# ────────────────────────────────────────────────────────────────────────────
+print("\n" + "-"*80)
+print("3. SENSITIVITY ANALYSIS")
+print("-"*80)
+
+def calculate_sensitivity():
+    """Evaluate JDS sensitivity to degraded motion (upperbody vs normal)."""
+    
+    # Filter to normal and upperbody runs
+    df = merged_data_with_jds.copy()
+    df['run_type'] = df['condition'].str.split('_').str[0]
+    df = df[df['run_type'].isin({'normal', 'upperbody'})].copy()
+    
+    sensitivity_results = []
+    
+    for song in sorted(df['song'].unique()):
+        for jds_col, jds_name in [('jds_hand', 'Hand'), ('jds_arm', 'Arm')]:
+            song_df = df[df['song'] == song]
+            
+            normal_df = song_df[song_df['run_type'] == 'normal']
+            upperbody_df = song_df[song_df['run_type'] == 'upperbody']
+            
+            normal_scores = normal_df[normal_df[jds_col].notna()][jds_col].values
+            upperbody_scores = upperbody_df[upperbody_df[jds_col].notna()][jds_col].values
+            
+            if len(normal_scores) < 2 or len(upperbody_scores) < 2:
+                continue
+            
+            mean_normal = np.mean(normal_scores)
+            std_normal = np.std(normal_scores, ddof=1)
+            mean_upperbody = np.mean(upperbody_scores)
+            std_upperbody = np.std(upperbody_scores, ddof=1)
+            delta = mean_normal - mean_upperbody
+            
+            # Check for paired data (same persons in both conditions)
+            normal_persons = set(normal_df['person'].unique())
+            upperbody_persons = set(upperbody_df['person'].unique())
+            paired_persons = normal_persons & upperbody_persons
+            
+            if len(paired_persons) >= 3:
+                # Paired test
+                paired_normal = []
+                paired_upperbody = []
+                
+                for person in paired_persons:
+                    person_normal = normal_df[normal_df['person'] == person][jds_col].values
+                    person_upperbody = upperbody_df[upperbody_df['person'] == person][jds_col].values
+                    
+                    if len(person_normal) > 0 and len(person_upperbody) > 0:
+                        paired_normal.append(np.mean(person_normal))
+                        paired_upperbody.append(np.mean(person_upperbody))
+                
+                paired_normal = np.array(paired_normal)
+                paired_upperbody = np.array(paired_upperbody)
+                
+                # Test normality of differences
+                differences = paired_normal - paired_upperbody
+                if len(differences) >= 3:
+                    _, p_normality = shapiro(differences)
+                    
+                    if p_normality > 0.05:
+                        # Use paired t-test
+                        _, p_value = ttest_rel(paired_normal, paired_upperbody)
+                    else:
+                        # Use Wilcoxon test
+                        _, p_value = wilcoxon(paired_normal, paired_upperbody)
+                else:
+                    p_value = np.nan
+                
+                # Cohen's d for paired samples
+                pooled_std = np.sqrt((std_normal**2 + std_upperbody**2) / 2)
+                cohens_d = delta / pooled_std if pooled_std > 0 else np.nan
+            else:
+                # Unpaired comparison - report but don't do statistical test
+                p_value = np.nan
+                pooled_std = np.sqrt((std_normal**2 + std_upperbody**2) / 2)
+                cohens_d = delta / pooled_std if pooled_std > 0 else np.nan
+            
+            sensitivity_results.append({
+                'Song': format_song_with_level(song),
+                'JDS_Type': jds_name,
+                'Mean_Normal': mean_normal,
+                'Mean_Upperbody': mean_upperbody,
+                'Δ': delta,
+                'p': p_value,
+                'Effect_Size': cohens_d
+            })
+    
+    return pd.DataFrame(sensitivity_results)
+
+# Calculate sensitivity
+sensitivity_df = calculate_sensitivity()
+
+# Sort by song order
+song_order = ['Old Town Road (Lvl 1)', 'Heart Of Glass (Lvl 2)', 'Unstoppable (Lvl 2)', 
+              'Padam Padam (Lvl 3)', 'Pink Venom (Lvl 4)']
+sensitivity_df['song_order'] = sensitivity_df['Song'].map({s: i for i, s in enumerate(song_order)})
+sensitivity_df = sensitivity_df.sort_values(['song_order', 'JDS_Type']).drop('song_order', axis=1)
+
+# Filter for Hand JDS only and remove JDS_Type column
+sensitivity_df_hand = sensitivity_df[sensitivity_df['JDS_Type'] == 'Hand'].copy()
+sensitivity_df_paper = sensitivity_df_hand.drop('JDS_Type', axis=1)
+
+print("\nSensitivity Results (Hand JDS only):")
+print(sensitivity_df_paper.to_string(index=False))
+
+# Save sensitivity table
+sensitivity_df_paper.to_csv('plots/sensitivity_table.csv', index=False)
+print("\nSaved: plots/sensitivity_table.csv")
+
+# Save as LaTeX with CVPR-style formatting matching bias table
+sensitivity_df_latex = sensitivity_df_paper.copy()
+
+# Convert to thousands
+sensitivity_df_latex['Normal_k'] = sensitivity_df_latex['Mean_Normal'] / 1000
+sensitivity_df_latex['Upperbody_k'] = sensitivity_df_latex['Mean_Upperbody'] / 1000
+sensitivity_df_latex['Delta_k'] = sensitivity_df_latex['Δ'] / 1000
+
+# Calculate total/overall statistics across all songs
+df_sens_total = merged_data_with_jds.copy()
+df_sens_total['run_type'] = df_sens_total['condition'].str.split('_').str[0]
+df_sens_total = df_sens_total[df_sens_total['run_type'].isin({'normal', 'upperbody'})].copy()
+df_sens_total = df_sens_total[df_sens_total['jds_hand'].notna()]
+
+normal_scores = df_sens_total[df_sens_total['run_type'] == 'normal']['jds_hand'].values
+upperbody_scores = df_sens_total[df_sens_total['run_type'] == 'upperbody']['jds_hand'].values
+
+total_mean_normal = np.mean(normal_scores) / 1000
+total_mean_upperbody = np.mean(upperbody_scores) / 1000
+total_delta_k = total_mean_normal - total_mean_upperbody
+
+# Test if total difference is significant
+from scipy.stats import ttest_ind
+_, total_p = ttest_ind(normal_scores, upperbody_scores)
+
+# Total effect size (Cohen's d)
+pooled_std = np.sqrt((np.std(normal_scores, ddof=1)**2 + np.std(upperbody_scores, ddof=1)**2) / 2)
+total_effect_size = (np.mean(normal_scores) - np.mean(upperbody_scores)) / pooled_std if pooled_std > 0 else 0
+
+# Build custom LaTeX table
+with open('plots/sensitivity_table.tex', 'w') as f:
+    f.write("\\begin{table}[t]\n")
+    f.write("\\caption{Sensitivity of hand-mounted JDS to motion degradation (n=30 trials per song). ")
+    f.write("Values denote mean Just Dance Scores (×10³). ")
+    f.write("$\\Delta$ represents difference between normal and upperbody conditions.}\n")
+    f.write("\\label{tab:sensitivity}\n")
+    f.write("\\centering\n")
+    f.write("\\resizebox{\\columnwidth}{!}{\n")
+    f.write("\\begin{tabular}{l|cc|c|cc}\n")
+    f.write("\\toprule\n")
+    f.write(" & \\multicolumn{2}{c|}{\\textbf{Mean JDS (×10³)}} & \\textbf{Difference} & \\multicolumn{2}{c}{\\textbf{Statistics}} \\\\\n")
+    f.write("\\cmidrule(lr){2-3} \\cmidrule(lr){5-6}\n")
+    f.write("\\textbf{Song} & Normal & Upperbody & $\\Delta$ & p & Cohen's d \\\\\n")
+    f.write("\\midrule\n")
+    
+    # Write data rows
+    for _, row in sensitivity_df_latex.iterrows():
+        song = row['Song']
+        normal = row['Normal_k']
+        upperbody = row['Upperbody_k']
+        delta = row['Delta_k']
+        p_val = row['p']
+        effect = row['Effect_Size']
+        
+        # Format p-value with proper LaTeX < symbol
+        if pd.notna(p_val):
+            if p_val < 0.01:
+                p_str = "$<$.01"
+            else:
+                p_str = f"{p_val:.2f}"
+        else:
+            p_str = "---"
+        
+        f.write(f"{song} & {normal:.1f} & {upperbody:.1f} & {delta:+.1f} & {p_str} & {effect:.2f} \\\\\n")
+    
+    # Write total summary row
+    f.write("\\midrule\n")
+    # Format total p-value
+    if total_p < 0.01:
+        total_p_str = "$<$.01"
+    else:
+        total_p_str = f"{total_p:.2f}"
+    
+    f.write(f"\\textbf{{Total}} & \\textbf{{{total_mean_normal:.1f}}} & \\textbf{{{total_mean_upperbody:.1f}}} & \\textbf{{{total_delta_k:+.1f}}} & \\textbf{{{total_p_str}}} & \\textbf{{{total_effect_size:.2f}}} \\\\\n")
+    f.write("\\bottomrule\n")
+    f.write("\\end{tabular}}\n")
+    f.write("\\end{table}\n")
+
+print("Saved: plots/sensitivity_table.tex")
+
+# Boxplot comparing normal vs upperbody (already exists in earlier code)
+# We'll create a new version with all songs in subplots
+
+def plot_sensitivity_boxplot():
+    """Create boxplot comparing normal vs upperbody for all songs."""
+    
+    df = merged_data_with_jds.copy()
+    df['run_type'] = df['condition'].str.split('_').str[0]
+    df = df[df['run_type'].isin({'normal', 'upperbody'})].copy()
+    
+    # Define song order
+    song_order = ['Old_Town_Road', 'Heart_Of_Glass', 'Unstoppable', 'Padam_Padam', 'Pink_Venom']
+    songs = [s for s in song_order if s in df['song'].values]
+    
+    for jds_col, jds_name in [('jds_hand', 'Hand'), ('jds_arm', 'Arm')]:
+        fig, axes = plt.subplots(1, len(songs), figsize=(3*len(songs), 4), sharey=True)
+        if len(songs) == 1:
+            axes = [axes]
+        
+        for idx, (song, ax) in enumerate(zip(songs, axes)):
+            song_df = df[df['song'] == song]
+            song_df = song_df[song_df[jds_col].notna()]
+            
+            normal_data = song_df[song_df['run_type'] == 'normal']
+            upperbody_data = song_df[song_df['run_type'] == 'upperbody']
+            
+            # Box plot without individual points
+            bp = ax.boxplot(
+                [normal_data[jds_col].values, upperbody_data[jds_col].values],
+                labels=['Normal', 'Upper\nbody'],
+                widths=0.5,
+                patch_artist=True,
+                showfliers=False,
+                medianprops=dict(color='black', linewidth=2),
+                boxprops=dict(facecolor='lightblue', alpha=0.7, edgecolor='black', linewidth=1.5),
+                whiskerprops=dict(color='black', linewidth=1.5),
+                capprops=dict(color='black', linewidth=1.5)
+            )
+            
+            # Title with multiline format
+            title = format_song_with_level(song, multiline=True)
+            ax.set_title(title, fontsize=7, fontweight='bold')
+            ax.grid(True, axis='y', linestyle='--', alpha=0.3)
+            ax.tick_params(axis='x', labelsize=7)
+            
+            if idx == 0:
+                ax.set_ylabel(f'JDS Score ({jds_name})', fontsize=9, fontweight='bold')
+        
+        fig.suptitle(f'Sensitivity: Normal vs Upperbody - {jds_name} JDS',
+                    fontsize=10, fontweight='bold')
+        
+        plt.tight_layout()
+        filename = f'plots/sensitivity_boxplot_{jds_name.lower()}.png'
+        plt.savefig(filename, dpi=150, bbox_inches='tight')
+        plt.close()
+        print(f"Saved: {filename}")
+
+plot_sensitivity_boxplot()
+
+# Create grouped bar plot of Cohen's d
+if len(sensitivity_df) > 0 and 'Effect_Size' in sensitivity_df.columns:
+    fig, ax = plt.subplots(figsize=(8, 5))
+    
+    # Define song order
+    song_order = ['Old Town Road (Lvl 1)', 'Heart Of Glass (Lvl 2)', 'Unstoppable (Lvl 2)', 
+                  'Padam Padam (Lvl 3)', 'Pink Venom (Lvl 4)']
+    songs = [s for s in song_order if s in sensitivity_df['Song'].values]
+    x = np.arange(len(songs))
+    width = 0.35
+    
+    hand_effect = []
+    arm_effect = []
+    
+    for song in songs:
+        hand_row = sensitivity_df[(sensitivity_df['Song'] == song) & (sensitivity_df['JDS_Type'] == 'Hand')]
+        arm_row = sensitivity_df[(sensitivity_df['Song'] == song) & (sensitivity_df['JDS_Type'] == 'Arm')]
+        
+        hand_effect.append(hand_row['Effect_Size'].values[0] if len(hand_row) > 0 and pd.notna(hand_row['Effect_Size'].values[0]) else 0)
+        arm_effect.append(arm_row['Effect_Size'].values[0] if len(arm_row) > 0 and pd.notna(arm_row['Effect_Size'].values[0]) else 0)
+    
+    ax.bar(x - width/2, hand_effect, width, label='Hand JDS',
+          alpha=0.8, color='skyblue', edgecolor='black')
+    ax.bar(x + width/2, arm_effect, width, label='Arm JDS',
+          alpha=0.8, color='salmon', edgecolor='black')
+    
+    # Reference lines for effect size interpretation
+    ax.axhline(y=0.2, color='gray', linestyle=':', linewidth=1, alpha=0.5, label='Small (0.2)')
+    ax.axhline(y=0.5, color='orange', linestyle=':', linewidth=1, alpha=0.5, label='Medium (0.5)')
+    ax.axhline(y=0.8, color='green', linestyle=':', linewidth=1, alpha=0.5, label='Large (0.8)')
+    
+    ax.set_xlabel('Song', fontsize=10, fontweight='bold')
+    ax.set_ylabel("Cohen's d", fontsize=10, fontweight='bold')
+    ax.set_title("Sensitivity: Effect Size (Normal - Upperbody)", fontsize=11, fontweight='bold')
+    ax.set_xticks(x)
+    # Create multiline labels with smaller font
+    song_labels = [s.replace(' (Lvl ', '\n(Lvl ') for s in songs]
+    ax.set_xticklabels(song_labels, fontsize=7, ha='center')
+    ax.legend(fontsize=8, loc='upper right')
+    ax.grid(axis='y', alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig('plots/sensitivity_effectsize.png', dpi=150, bbox_inches='tight')
+    plt.close()
+    print("Saved: plots/sensitivity_effectsize.png")
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# 4. BIAS ANALYSIS (CVPR Publication-Ready)
+# ────────────────────────────────────────────────────────────────────────────
+print("\n" + "-"*80)
+print("4. BIAS ANALYSIS")
+print("-"*80)
+
+def calculate_bias():
+    """Test potential bias between Hand and Arm JDS."""
+    
+    # Filter to normal runs only
+    df = merged_data_with_jds.copy()
+    df['run_type'] = df['condition'].str.split('_').str[0]
+    df = df[df['run_type'] == 'normal'].copy()
+    df = df[df['jds_hand'].notna() & df['jds_arm'].notna()]
+    
+    bias_results = []
+    
+    for song in sorted(df['song'].unique()):
+        song_df = df[df['song'] == song]
+        
+        if len(song_df) < 2:
+            continue
+        
+        hand_scores = song_df['jds_hand'].values
+        arm_scores = song_df['jds_arm'].values
+        
+        mean_hand = np.mean(hand_scores)
+        mean_arm = np.mean(arm_scores)
+        delta = mean_hand - mean_arm
+        
+        # Paired correlation
+        r, _ = pearsonr(hand_scores, arm_scores)
+        
+        # Paired t-test
+        _, p = ttest_rel(hand_scores, arm_scores)
+        
+        bias_results.append({
+            'Song': format_song_with_level(song),
+            'Mean_Hand': mean_hand,
+            'Mean_Arm': mean_arm,
+            'Δ': delta,
+            'r': r,
+            'p': p
+        })
+    
+    return pd.DataFrame(bias_results)
+
+# Calculate bias
+bias_df = calculate_bias()
+
+# Sort by song order
+song_order = ['Old Town Road (Lvl 1)', 'Heart Of Glass (Lvl 2)', 'Unstoppable (Lvl 2)', 
+              'Padam Padam (Lvl 3)', 'Pink Venom (Lvl 4)']
+bias_df['song_order'] = bias_df['Song'].map({s: i for i, s in enumerate(song_order)})
+bias_df = bias_df.sort_values('song_order').drop('song_order', axis=1)
+
+print("\nBias Results:")
+print(bias_df.to_string(index=False))
+
+# Save bias table for supplementary material
+bias_df.to_csv('plots/bias_hand_arm_table.csv', index=False)
+print("\nSaved: plots/bias_hand_arm_table.csv")
+
+# Save as LaTeX with improved formatting
+bias_df_latex = bias_df.copy()
+
+# Convert to thousands and calculate percentage bias
+bias_df_latex['Hand_k'] = bias_df_latex['Mean_Hand'] / 1000
+bias_df_latex['Arm_k'] = bias_df_latex['Mean_Arm'] / 1000
+bias_df_latex['Delta_pct'] = (bias_df_latex['Δ'] / bias_df_latex['Mean_Hand']) * 100
+
+# Calculate TOTAL statistics across all data points (not per-song averages)
+# Get all hand and arm scores from the full dataset
+df_total = merged_data_with_jds.copy()
+df_total['run_type'] = df_total['condition'].str.split('_').str[0]
+df_total = df_total[df_total['run_type'] == 'normal'].copy()
+df_total = df_total[df_total['jds_hand'].notna() & df_total['jds_arm'].notna()]
+
+all_hand_scores = df_total['jds_hand'].values
+all_arm_scores = df_total['jds_arm'].values
+
+# Total mean values
+total_mean_hand = np.mean(all_hand_scores) / 1000  # in thousands
+total_mean_arm = np.mean(all_arm_scores) / 1000    # in thousands
+
+# Total correlation and p-value across all songs
+total_r, total_p = pearsonr(all_hand_scores, all_arm_scores)
+
+# Total percentage bias: calculate directly from total means
+total_delta = total_mean_hand - total_mean_arm  # in thousands
+total_delta_pct = (total_delta / total_mean_hand) * 100  # percentage relative to hand
+
+# Build custom LaTeX table manually
+with open('plots/bias_hand_arm_table.tex', 'w') as f:
+    f.write("\\begin{table}[t]\n")
+    f.write("\\caption{Comparison of hand- and arm-mounted JDS measurements across songs (n=30 trials per song). ")
+    f.write("Values denote mean Just Dance Scores (×10³). ")
+    f.write("$\\Delta$ represents percentage bias relative to hand-mounted scores.}\n")
+    f.write("\\label{tab:bias}\n")
+    f.write("\\centering\n")
+    f.write("\\resizebox{\\columnwidth}{!}{\n")
+    f.write("\\begin{tabular}{l|cc|c|cc}\n")
+    f.write("\\toprule\n")
+    f.write(" & \\multicolumn{2}{c|}{\\textbf{Mean JDS (×10³)}} & \\textbf{Bias} & \\multicolumn{2}{c}{\\textbf{Correlation}} \\\\\n")
+    f.write("\\cmidrule(lr){2-3} \\cmidrule(lr){5-6}\n")
+    f.write("\\textbf{Song} & Hand & Arm & $\\Delta$ (\\%) & r & p \\\\\n")
+    f.write("\\midrule\n")
+    
+    # Write data rows
+    for _, row in bias_df_latex.iterrows():
+        song = row['Song']
+        hand = row['Hand_k']
+        arm = row['Arm_k']
+        delta_pct = row['Delta_pct']
+        r_val = row['r']
+        p_val = row['p']
+        
+        # Format p-value: use proper LaTeX < symbol
+        if p_val < 0.01:
+            p_str = "$<$.01"
+        else:
+            p_str = f"{p_val:.2f}"
+        
+        f.write(f"{song} & {hand:.1f} & {arm:.1f} & {delta_pct:+.1f} & {r_val:.2f} & {p_str} \\\\\n")
+    
+    # Write total summary row
+    f.write("\\midrule\n")
+    # Format total p-value
+    if total_p < 0.01:
+        total_p_str = "$<$.01"
+    else:
+        total_p_str = f"{total_p:.2f}"
+    
+    f.write(f"\\textbf{{Total}} & \\textbf{{{total_mean_hand:.1f}}} & \\textbf{{{total_mean_arm:.1f}}} & \\textbf{{{total_delta_pct:+.1f}}} & \\textbf{{{total_r:.2f}}} & \\textbf{{{total_p_str}}} \\\\\n")
+    f.write("\\bottomrule\n")
+    f.write("\\end{tabular}}\n")
+    f.write("\\end{table}\n")
+
+print("Saved: plots/bias_hand_arm_table.tex (for appendix)")
+# ──────────────────────────────────────────────────────────────────────────
+# PLOT 1: Compact scatter plot for CVPR single column
+# ──────────────────────────────────────────────────────────────────────────
+df_bias_plot = merged_data_with_jds.copy()
+df_bias_plot['run_type'] = df_bias_plot['condition'].str.split('_').str[0]
+df_bias_plot = df_bias_plot[df_bias_plot['run_type'] == 'normal']
+df_bias_plot = df_bias_plot[df_bias_plot['jds_hand'].notna() & df_bias_plot['jds_arm'].notna()]
+
+if len(df_bias_plot) > 0:
+    fig, ax = plt.subplots(figsize=(3.4, 3.4))
+
+    # Define consistent colors per song
+    song_colors_bias = {
+        'Old_Town_Road': '#ff7f0e',
+        'Heart_Of_Glass': '#1f77b4',
+        'Unstoppable': '#9467bd',
+        'Padam_Padam': '#2ca02c',
+        'Pink_Venom': '#d62728',
+    }
+
+    # Plot each song
+    song_order_raw = ['Old_Town_Road', 'Heart_Of_Glass', 'Unstoppable', 'Padam_Padam', 'Pink_Venom']
+    for song in song_order_raw:
+        if song in df_bias_plot['song'].values:
+            song_data = df_bias_plot[df_bias_plot['song'] == song]
+            ax.scatter(
+                song_data['jds_hand'],
+                song_data['jds_arm'],
+                s=28, alpha=0.7, color=song_colors_bias.get(song, '#7f7f7f'),
+                edgecolors='black', linewidth=0.4, label=format_song_with_level(song)
+            )
+
+    # Regression line and reference y=x line
+    hand_vals = df_bias_plot['jds_hand'].values
+    arm_vals = df_bias_plot['jds_arm'].values
+    r_overall, p_overall = pearsonr(hand_vals, arm_vals)
+    m, b = np.polyfit(hand_vals, arm_vals, 1)
+    xs = np.linspace(hand_vals.min(), hand_vals.max(), 100)
+    ax.plot(xs, m * xs + b, linestyle='--', color='black', linewidth=1.4,
+            alpha=0.8, label=f'$r={r_overall:.2f}$, $p={p_overall:.3f}$')
+
+    # Set equal axis scaling and rounded bounds
+    combined_min = min(df_bias_plot['jds_hand'].min(), df_bias_plot['jds_arm'].min())
+    combined_max = max(df_bias_plot['jds_hand'].max(), df_bias_plot['jds_arm'].max())
+    combined_min = np.floor(combined_min / 500) * 500
+    combined_max = np.ceil(combined_max / 500) * 500
+    ax.set_xlim(combined_min, combined_max)
+    ax.set_ylim(combined_min, combined_max)
+    ax.set_aspect('equal', adjustable='box')
+
+    # Dotted y=x reference line
+    ax.plot([combined_min, combined_max], [combined_min, combined_max],
+            linestyle=':', color='gray', linewidth=1.2, alpha=0.8, label='y=x')
+
+    # Ticks and formatting
+    ticks = np.arange(combined_min, combined_max + 1, 2000)
+    ax.set_xticks(ticks)
+    ax.set_yticks(ticks)
+    ax.xaxis.set_major_formatter(lambda x, pos: f"{x/1000:.0f}k")
+    ax.yaxis.set_major_formatter(lambda y, pos: f"{y/1000:.0f}k")
+
+    # Labels and title
+    ax.set_xlabel('Hand JDS Score', fontsize=9, fontweight='bold')
+    ax.set_ylabel('Arm JDS Score', fontsize=9, fontweight='bold')
+    ax.set_title('Hand vs Arm JDS', fontsize=10, fontweight='bold')
+
+    # Legend and grid
+    ax.legend(fontsize=6.2, loc='upper left', framealpha=0.95, bbox_to_anchor=(0.02, 0.98))
+    ax.grid(True, linestyle='--', alpha=0.3)
+
+    # Tight layout for CVPR single-column fit
+    plt.tight_layout(pad=0.2)
+    plt.savefig('plots/bias_hand_vs_arm_cvpr.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    print("Saved: plots/bias_hand_vs_arm_cvpr.png")
+
+# ──────────────────────────────────────────────────────────────────────────
+# PLOT 2: Mean bias (Δ = Hand - Arm) per song as compact bar plot
+# ──────────────────────────────────────────────────────────────────────────
+if len(bias_df) > 0:
+    fig, ax = plt.subplots(figsize=(3.2, 2.4))
+    
+    # Prepare data for seaborn barplot
+    plot_data = bias_df.copy()
+    
+    # Create barplot
+    sns.barplot(
+        data=plot_data,
+        x='Song',
+        y='Δ',
+        color='steelblue',
+        alpha=0.8,
+        edgecolor='black',
+        linewidth=1.2,
+        ax=ax
+    )
+    
+    # Add horizontal zero line
+    ax.axhline(0, linestyle='--', color='gray', linewidth=1, alpha=0.7)
+    
+    # Labels and formatting
+    ax.set_xlabel('Song', fontsize=9, fontweight='bold')
+    ax.set_ylabel('$\\Delta$ (Hand - Arm)', fontsize=9, fontweight='bold')
+    ax.set_title('Mean Bias per Song', fontsize=10, fontweight='bold')
+    
+    # Rotate x-axis labels for readability
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=40, ha='right', fontsize=8)
+    ax.tick_params(axis='y', labelsize=8)
+    ax.grid(axis='y', linestyle='--', alpha=0.3)
+    
+    plt.tight_layout(pad=0.3)
+    plt.savefig('plots/bias_delta_bar.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    print("Saved: plots/bias_delta_bar.png")
+
+# ──────────────────────────────────────────────────────────────────────────
+# Summary statistics for bias analysis
+# ──────────────────────────────────────────────────────────────────────────
+print("\n--- Bias Analysis Summary ---")
+print(f"Overall Hand-Arm correlation: r={r_overall:.3f}, p={p_overall:.4f}")
+
+mean_delta = bias_df['Δ'].mean()
+mean_abs_delta = bias_df['Δ'].abs().mean()
+print(f"Mean bias (Δ = Hand - Arm): {mean_delta:.2f}")
+print(f"Mean absolute bias |Δ|: {mean_abs_delta:.2f}")
+
+if mean_delta > 0:
+    print("→ Hand JDS tends to score HIGHER than Arm JDS on average.")
+elif mean_delta < 0:
+    print("→ Arm JDS tends to score HIGHER than Hand JDS on average.")
+else:
+    print("→ No systematic bias between Hand and Arm JDS.")
+
+# Count songs with positive vs negative bias
+positive_bias = (bias_df['Δ'] > 0).sum()
+negative_bias = (bias_df['Δ'] < 0).sum()
+print(f"Songs with Hand > Arm: {positive_bias}/{len(bias_df)}")
+print(f"Songs with Arm > Hand: {negative_bias}/{len(bias_df)}")
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# 5. SUMMARY
+# ────────────────────────────────────────────────────────────────────────────
+print("\n" + "-"*80)
+print("5. OVERALL SUMMARY")
+print("-"*80)
+
+def create_overall_summary():
+    """Create concise summary table with key metrics."""
+    
+    summary_data = []
+    
+    # Mean ICC(3,1)
+    if len(reliability_df) > 0 and 'ICC(3,1)' in reliability_df.columns:
+        mean_icc = reliability_df['ICC(3,1)'].mean()
+    else:
+        mean_icc = np.nan
+    
+    # Mean |r| from validity
+    if len(validity_df) > 0:
+        mean_abs_r = validity_df['r'].abs().mean()
+    else:
+        mean_abs_r = np.nan
+    
+    # Mean CV from reliability
+    if len(reliability_df) > 0 and 'CV(%)' in reliability_df.columns:
+        mean_cv = reliability_df['CV(%)'].mean()
+    else:
+        mean_cv = np.nan
+    
+    # Mean Cohen's d from sensitivity
+    if len(sensitivity_df) > 0 and 'Effect_Size' in sensitivity_df.columns:
+        mean_effect_size = sensitivity_df['Effect_Size'].mean()
+    else:
+        mean_effect_size = np.nan
+    
+    summary_data.append({
+        'Metric': 'Overall',
+        'Mean_ICC(3,1)': mean_icc,
+        'Mean_|r|': mean_abs_r,
+        'Mean_CV(%)': mean_cv,
+        'Mean_Effect_Size': mean_effect_size
+    })
+    
+    return pd.DataFrame(summary_data)
+
+overall_summary_df = create_overall_summary()
+print("\nOverall Summary:")
+print(overall_summary_df.to_string(index=False))
+
+# Save overall summary
+overall_summary_df.to_csv('plots/overall_summary.csv', index=False)
+print("\nSaved: plots/overall_summary.csv")
+
+# Print textual summary
+print("\n" + "="*80)
+print("TEXTUAL SUMMARY FOR PAPER")
+print("="*80)
+
+mean_icc = overall_summary_df['Mean_ICC(3,1)'].values[0]
+mean_r = overall_summary_df['Mean_|r|'].values[0]
+mean_effect = overall_summary_df['Mean_Effect_Size'].values[0]
+
+# Interpret ICC
+if pd.notna(mean_icc):
+    if mean_icc >= 0.9:
+        icc_quality = "excellent"
+    elif mean_icc >= 0.75:
+        icc_quality = "good"
+    elif mean_icc >= 0.5:
+        icc_quality = "moderate"
+    else:
+        icc_quality = "poor"
+else:
+    icc_quality = "unknown"
+    mean_icc = 0
+
+# Interpret correlation strength
+if pd.notna(mean_r):
+    if mean_r >= 0.7:
+        corr_strength = "strong"
+    elif mean_r >= 0.5:
+        corr_strength = "moderate"
+    elif mean_r >= 0.3:
+        corr_strength = "weak"
+    else:
+        corr_strength = "very weak"
+else:
+    corr_strength = "unknown"
+    mean_r = 0
+
+# Interpret effect size
+if pd.notna(mean_effect):
+    if mean_effect >= 0.8:
+        effect_interp = "large"
+    elif mean_effect >= 0.5:
+        effect_interp = "medium"
+    elif mean_effect >= 0.2:
+        effect_interp = "small"
+    else:
+        effect_interp = "negligible"
+else:
+    effect_interp = "unknown"
+    mean_effect = 0
+
+summary_text = f"""
+JDS demonstrates {icc_quality} test-retest reliability (ICC={mean_icc:.2f}), 
+{corr_strength} correlation with established motion metrics (mean |r|≈{mean_r:.2f}),
+and {effect_interp} sensitivity to degraded motions (Cohen's d≈{mean_effect:.2f}).
+"""
+
+print(summary_text)
+
+print("\n" + "="*80)
+print("PAPER RESULTS GENERATION COMPLETE")
+print("="*80)
+print("\nAll tables and figures saved to plots/ directory:")
+print("  - reliability_table.csv / .tex")
+print("  - reliability_icc_barplot.png")
+print("  - validity_correlation_table.csv / .tex")
+print("  - validity_heatmap_hand.png / validity_heatmap_arm.png")
+print("  - validity_summary_barplot.png")
+print("  - sensitivity_table.csv / .tex")
+print("  - sensitivity_boxplot_hand.png / sensitivity_boxplot_arm.png")
+print("  - sensitivity_effectsize.png")
+print("  - bias_hand_arm_table.csv / .tex")
+print("  - bias_hand_vs_arm_scatter.png")
+print("  - overall_summary.csv")
+print("="*80)

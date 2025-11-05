@@ -1137,6 +1137,234 @@ if len(reliability_df) > 0:
     plt.close()
     print("Saved: plots/reliability_icc_barplot.png")
 
+# ────────────────────────────────────────────────────────────────────────────
+# 1b. RELIABILITY COMPARISON: JDS vs Motion Metrics
+# ────────────────────────────────────────────────────────────────────────────
+print("\n" + "-"*80)
+print("1b. RELIABILITY COMPARISON: JDS vs Motion Metrics")
+print("-"*80)
+
+def calculate_metric_reliability():
+    """Calculate test-retest reliability for motion metrics (PA-MPJPE, MPJPE)."""
+    
+    # Filter to normal runs only
+    df = merged_data_with_jds.copy()
+    df['run_type'] = df['condition'].str.split('_').str[0]
+    df = df[df['run_type'] == 'normal'].copy()
+    
+    reliability_results = []
+    
+    metrics = [
+        ('pa_mpjpe', 'PA-MPJPE'),
+        ('mpjpe', 'MPJPE'),
+        ('dtw', 'DTW')
+    ]
+    
+    for metric_col, metric_name in metrics:
+        for song in sorted(df['song'].unique()):
+            song_df = df[df['song'] == song]
+            song_df = song_df[song_df[metric_col].notna()]
+            
+            if len(song_df) < 3:
+                continue
+            
+            # Prepare data for ICC
+            song_df = song_df.copy()
+            song_df['repeat_num'] = song_df.groupby('person').cumcount() + 1
+            
+            pivot_df = song_df.pivot_table(
+                index='person',
+                columns='repeat_num',
+                values=metric_col,
+                aggfunc='first'
+            )
+            
+            if pivot_df.shape[1] < 2:
+                continue
+            
+            # Reshape for ICC calculation
+            icc_data = []
+            for person in pivot_df.index:
+                for repeat in pivot_df.columns:
+                    if pd.notna(pivot_df.loc[person, repeat]):
+                        icc_data.append({
+                            'targets': person,
+                            'raters': f'repeat_{repeat}',
+                            'ratings': pivot_df.loc[person, repeat]
+                        })
+            
+            if len(icc_data) < 6:
+                continue
+            
+            icc_df = pd.DataFrame(icc_data)
+            
+            # Calculate ICC(3,1)
+            try:
+                icc_results = pg.intraclass_corr(
+                    data=icc_df,
+                    targets='targets',
+                    raters='raters',
+                    ratings='ratings'
+                )
+                
+                icc3_1_row = icc_results[icc_results['Type'] == 'ICC3']
+                icc3_1 = icc3_1_row['ICC'].values[0] if len(icc3_1_row) > 0 else np.nan
+                
+                icc3_k_row = icc_results[icc_results['Type'] == 'ICC3k']
+                icc3_k = icc3_k_row['ICC'].values[0] if len(icc3_k_row) > 0 else np.nan
+                
+            except Exception as e:
+                print(f"  Warning: ICC calculation failed for {song} / {metric_name}: {e}")
+                icc3_1 = np.nan
+                icc3_k = np.nan
+            
+            # Calculate CV
+            cv_values = []
+            for person in song_df['person'].unique():
+                person_scores = song_df[song_df['person'] == person][metric_col].values
+                if len(person_scores) >= 2:
+                    mean_score = np.mean(person_scores)
+                    std_score = np.std(person_scores, ddof=1)
+                    if mean_score > 0:
+                        cv = (std_score / mean_score) * 100
+                        cv_values.append(cv)
+            
+            mean_cv = np.mean(cv_values) if len(cv_values) > 0 else np.nan
+            
+            reliability_results.append({
+                'Song': format_song_with_level(song),
+                'Metric': metric_name,
+                'ICC(3,1)': icc3_1,
+                'ICC(3,k)': icc3_k,
+                'CV(%)': mean_cv
+            })
+    
+    return pd.DataFrame(reliability_results)
+
+# Calculate motion metric reliability
+metric_reliability_df = calculate_metric_reliability()
+
+# Sort by song order
+metric_reliability_df['song_order'] = metric_reliability_df['Song'].map({s: i for i, s in enumerate(song_order)})
+metric_reliability_df = metric_reliability_df.sort_values(['song_order', 'Metric']).drop('song_order', axis=1)
+
+print("\nMotion Metric Reliability:")
+print(metric_reliability_df.to_string(index=False))
+
+# Save metric reliability table
+metric_reliability_df.to_csv('plots/metric_reliability_table.csv', index=False)
+print("\nSaved: plots/metric_reliability_table.csv")
+
+# Create comparison summary: average ICC across all songs for each metric/JDS type
+comparison_data = []
+
+# JDS reliability (Hand and Arm)
+for jds_type in ['Hand', 'Arm']:
+    jds_subset = reliability_df[reliability_df['JDS_Type'] == jds_type]
+    mean_icc = jds_subset['ICC(3,1)'].mean()
+    mean_cv = jds_subset['CV(%)'].mean()
+    comparison_data.append({
+        'Measure': f'JDS ({jds_type})',
+        'Mean ICC(3,1)': mean_icc,
+        'Mean CV(%)': mean_cv
+    })
+
+# Motion metrics
+for metric in ['PA-MPJPE', 'MPJPE', 'DTW']:
+    metric_subset = metric_reliability_df[metric_reliability_df['Metric'] == metric]
+    mean_icc = metric_subset['ICC(3,1)'].mean()
+    mean_cv = metric_subset['CV(%)'].mean()
+    comparison_data.append({
+        'Measure': metric,
+        'Mean ICC(3,1)': mean_icc,
+        'Mean CV(%)': mean_cv
+    })
+
+comparison_df = pd.DataFrame(comparison_data)
+
+print("\n" + "="*60)
+print("RELIABILITY COMPARISON SUMMARY")
+print("="*60)
+print(comparison_df.to_string(index=False))
+print("\nInterpretation:")
+print("  ICC(3,1): < 0.5 = poor, 0.5-0.75 = moderate, 0.75-0.9 = good, > 0.9 = excellent")
+print("  CV(%): Lower is better (less variability across trials)")
+
+# Save comparison summary
+comparison_df.to_csv('plots/reliability_comparison_summary.csv', index=False)
+print("\nSaved: plots/reliability_comparison_summary.csv")
+
+# Create LaTeX table for CVPR paper
+latex_lines = []
+latex_lines.append("\\begin{table*}[t]")
+latex_lines.append("\\centering")
+latex_lines.append("\\caption{Test-Retest Reliability Comparison: JDS vs. Motion Metrics}")
+latex_lines.append("\\label{tab:reliability_comparison}")
+latex_lines.append("\\resizebox{\\textwidth}{!}{%")
+latex_lines.append("\\begin{tabular}{lcc}")
+latex_lines.append("\\toprule")
+latex_lines.append("\\textbf{Measure} & \\textbf{Mean ICC(3,1)} & \\textbf{Mean CV (\\%)} \\\\")
+latex_lines.append("\\midrule")
+
+for _, row in comparison_df.iterrows():
+    measure = row['Measure']
+    icc = row['Mean ICC(3,1)']
+    cv = row['Mean CV(%)']
+    
+    # Interpret ICC quality
+    if icc >= 0.9:
+        quality = "excellent"
+    elif icc >= 0.75:
+        quality = "good"
+    elif icc >= 0.5:
+        quality = "moderate"
+    else:
+        quality = "poor"
+    
+    latex_lines.append(f"{measure} & {icc:.2f} ({quality}) & {cv:.1f} \\\\")
+
+latex_lines.append("\\bottomrule")
+latex_lines.append("\\end{tabular}")
+latex_lines.append("}")
+latex_lines.append("\\end{table*}")
+
+latex_content = "\n".join(latex_lines)
+
+with open('plots/reliability_comparison_table.tex', 'w') as f:
+    f.write(latex_content)
+
+print("Saved: plots/reliability_comparison_table.tex")
+
+# Create comparison bar plot
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+
+measures = comparison_df['Measure'].values
+icc_values = comparison_df['Mean ICC(3,1)'].values
+cv_values = comparison_df['Mean CV(%)'].values
+
+# ICC comparison
+colors = ['skyblue', 'salmon', 'lightgreen', 'wheat', 'plum']
+ax1.barh(measures, icc_values, color=colors, edgecolor='black', alpha=0.8)
+ax1.axvline(x=0.75, color='orange', linestyle='--', linewidth=1.5, label='Good (0.75)', alpha=0.7)
+ax1.axvline(x=0.9, color='green', linestyle='--', linewidth=1.5, label='Excellent (0.90)', alpha=0.7)
+ax1.set_xlabel('Mean ICC(3,1)', fontsize=10, fontweight='bold')
+ax1.set_title('Test-Retest Reliability', fontsize=11, fontweight='bold')
+ax1.set_xlim([0, 1.0])
+ax1.legend(fontsize=8, loc='lower right')
+ax1.grid(axis='x', alpha=0.3)
+
+# CV comparison
+ax2.barh(measures, cv_values, color=colors, edgecolor='black', alpha=0.8)
+ax2.set_xlabel('Mean CV (%)', fontsize=10, fontweight='bold')
+ax2.set_title('Coefficient of Variation', fontsize=11, fontweight='bold')
+ax2.grid(axis='x', alpha=0.3)
+ax2.invert_xaxis()  # Lower CV is better
+
+plt.tight_layout()
+plt.savefig('plots/reliability_comparison_barplot.png', dpi=150, bbox_inches='tight')
+plt.close()
+print("Saved: plots/reliability_comparison_barplot.png")
+
 
 # ────────────────────────────────────────────────────────────────────────────
 # 2. VALIDITY

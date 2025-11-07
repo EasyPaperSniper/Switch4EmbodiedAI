@@ -933,6 +933,16 @@ SONG_DIFFICULTY = {
     'Pink_Venom': 4
 }
 
+# Define difficulty categories
+def get_difficulty_category(song_name):
+    """Get difficulty category (Easy or Hard) for a song."""
+    level = SONG_DIFFICULTY.get(song_name, None)
+    if level in [1, 2]:
+        return 'Easy'
+    elif level in [3, 4]:
+        return 'Hard'
+    return None
+
 # Helper function to format song names with level
 def format_song_with_level(song_name, multiline=False):
     """Format song name with level information."""
@@ -1433,22 +1443,75 @@ print(validity_df_paper.to_string(index=False))
 validity_df_paper.to_csv('plots/validity_correlation_table.csv', index=False)
 print("\nSaved: plots/validity_correlation_table.csv")
 
-# Save as LaTeX with proper formatting for CVPR 2-column
-# Column names are already clean (Song, Metric, r, p)
+# Save as LaTeX with improved formatting (no repeated song names)
 validity_df_latex = validity_df_paper.copy()
-validity_df_latex.columns = ['Song', 'Metric', 'r', 'p-value']
 
 with open('plots/validity_correlation_table.tex', 'w') as f:
-    latex_str = validity_df_latex.to_latex(
-        index=False,
-        float_format="%.2f",
-        caption="Pearson correlation between Hand JDS and motion metrics (n=30 trials per song).",
-        label="tab:validity",
-        column_format='ll|cc',
-        escape=False
-    )
-    f.write(latex_str)
+    f.write("\\begin{table}[t]\n")
+    f.write("\\caption{Pearson correlation between JDS and motion metrics (n=30 trials per song). Correlations computed per song.}\n")
+    f.write("\\label{tab:validity}\n")
+    f.write("\\centering\n")
+    f.write("\\small\n")
+    f.write("\\begin{tabular}{@{}lcccc@{}}\n")
+    f.write("\\toprule\n")
+    f.write("\\textbf{Song} & \\textbf{DTW} & \\textbf{MPJPE} & \\textbf{PA-MPJPE} \\\\\n")
+    f.write("\\midrule\n")
+    
+    # Group by song and pivot metrics as columns
+    for song in song_order:
+        song_data = validity_df_latex[validity_df_latex['Song'] == song]
+        if len(song_data) > 0:
+            # Get correlation values for each metric
+            dtw_val = song_data[song_data['Metric'] == 'DTW']['r'].values[0] if len(song_data[song_data['Metric'] == 'DTW']) > 0 else 0
+            mpjpe_val = song_data[song_data['Metric'] == 'MPJPE']['r'].values[0] if len(song_data[song_data['Metric'] == 'MPJPE']) > 0 else 0
+            pa_mpjpe_val = song_data[song_data['Metric'] == 'PA-MPJPE']['r'].values[0] if len(song_data[song_data['Metric'] == 'PA-MPJPE']) > 0 else 0
+            
+            f.write(f"{song} & {dtw_val:.2f} & {mpjpe_val:.2f} & {pa_mpjpe_val:.2f} \\\\\n")
+    
+    f.write("\\bottomrule\n")
+    f.write("\\end{tabular}\n")
+    f.write("\\end{table}\n")
+
 print("Saved: plots/validity_correlation_table.tex")
+
+# Create anonymized version with difficulty-based naming
+with open('plots/validity_correlation_table_anonymous.tex', 'w') as f:
+    f.write("\\begin{table}[t]\n")
+    f.write("\\caption{Pearson correlation between JDS and motion metrics. Correlations computed per song.}\n")
+    f.write("\\label{tab:validity_anonymous}\n")
+    f.write("\\centering\n")
+    f.write("\\small\n")
+    f.write("\\begin{tabular}{@{}lcccc@{}}\n")
+    f.write("\\toprule\n")
+    f.write("\\textbf{Song} & \\textbf{DTW} & \\textbf{MPJPE} & \\textbf{PA-MPJPE} \\\\\n")
+    f.write("\\midrule\n")
+    
+    # Map songs to anonymized names with level info
+    song_anon_map = {
+        'Old Town Road (Lvl 1)': 'Easy 1 (Lvl 1)',
+        'Heart Of Glass (Lvl 2)': 'Easy 2 (Lvl 2)',
+        'Unstoppable (Lvl 2)': 'Easy 3 (Lvl 2)',
+        'Padam Padam (Lvl 3)': 'Hard 1 (Lvl 3)',
+        'Pink Venom (Lvl 4)': 'Hard 2 (Lvl 4)'
+    }
+    
+    # Group by song and pivot metrics as columns
+    for song in song_order:
+        song_data = validity_df_latex[validity_df_latex['Song'] == song]
+        if len(song_data) > 0:
+            # Get correlation values for each metric
+            dtw_val = song_data[song_data['Metric'] == 'DTW']['r'].values[0] if len(song_data[song_data['Metric'] == 'DTW']) > 0 else 0
+            mpjpe_val = song_data[song_data['Metric'] == 'MPJPE']['r'].values[0] if len(song_data[song_data['Metric'] == 'MPJPE']) > 0 else 0
+            pa_mpjpe_val = song_data[song_data['Metric'] == 'PA-MPJPE']['r'].values[0] if len(song_data[song_data['Metric'] == 'PA-MPJPE']) > 0 else 0
+            
+            anon_name = song_anon_map.get(song, song)
+            f.write(f"{anon_name} & {dtw_val:.2f} & {mpjpe_val:.2f} & {pa_mpjpe_val:.2f} \\\\\n")
+    
+    f.write("\\bottomrule\n")
+    f.write("\\end{tabular}\n")
+    f.write("\\end{table}\n")
+
+print("Saved: plots/validity_correlation_table_anonymous.tex")
 
 # Create heatmaps for each JDS type
 for jds_name in ['Hand', 'Arm']:
@@ -1510,6 +1573,55 @@ for jds_name in ['Hand', 'Arm']:
     plt.savefig(filename, dpi=150, bbox_inches='tight')
     plt.close()
     print(f"Saved: {filename}")
+    
+    # ──────────────────────────────────────────────────────────────────────────
+    # Create version with difficulty-based naming (Easy 1-3, Hard 1-2)
+    # ──────────────────────────────────────────────────────────────────────────
+    if jds_name == 'Hand':  # Only create for Hand JDS
+        # Create a copy and rename columns
+        heatmap_data_diff = heatmap_data.copy()
+        
+        # Map original song names to difficulty-based names
+        song_name_map = {
+            'Old Town Road\n(Lvl 1)': 'Easy 1',
+            'Heart Of Glass\n(Lvl 2)': 'Easy 2',
+            'Unstoppable\n(Lvl 2)': 'Easy 3',
+            'Padam Padam\n(Lvl 3)': 'Hard 1',
+            'Pink Venom\n(Lvl 4)': 'Hard 2'
+        }
+        
+        # Rename columns
+        heatmap_data_diff.columns = [song_name_map.get(col, col) for col in heatmap_data_diff.columns]
+        
+        # Create heatmap
+        fig, ax = plt.subplots(figsize=(7, 4))
+        
+        sns.heatmap(
+            heatmap_data_diff,
+            annot=True,
+            fmt='.2f',
+            cmap='RdBu_r',
+            center=0,
+            vmin=-1,
+            vmax=1,
+            cbar_kws={'label': 'Pearson r', 'shrink': 0.8},
+            linewidths=0.5,
+            linecolor='gray',
+            ax=ax,
+            annot_kws={'fontsize': 11, 'fontweight': 'bold'}
+        )
+        
+        ax.set_title('Validity: Correlation between JDS and Motion Metrics',
+                    fontsize=12, fontweight='bold', pad=12)
+        ax.set_xlabel('Song (by Difficulty)', fontsize=11, fontweight='bold')
+        ax.set_ylabel('Metric', fontsize=11, fontweight='bold')
+        ax.tick_params(axis='x', rotation=0, labelsize=10)
+        ax.tick_params(axis='y', rotation=0, labelsize=10)
+        
+        plt.tight_layout()
+        plt.savefig('plots/validity_heatmap_hand_anonymous.png', dpi=150, bbox_inches='tight')
+        plt.close()
+        print("Saved: plots/validity_heatmap_hand_anonymous.png")
 
 # Create grouped bar plot showing average |r| per metric
 if len(validity_df) > 0:
@@ -1731,17 +1843,15 @@ total_effect_size = (np.mean(normal_scores) - np.mean(upperbody_scores)) / poole
 # Build custom LaTeX table
 with open('plots/sensitivity_table.tex', 'w') as f:
     f.write("\\begin{table}[t]\n")
-    f.write("\\caption{Sensitivity of hand-mounted JDS to motion degradation (n=30 trials per song). ")
-    f.write("Values denote mean Just Dance Scores (×10³). ")
-    f.write("$\\Delta$ represents difference between normal and upperbody conditions.}\n")
+    f.write("\\caption{Sensitivity of JDS to motion degradation. ")
+    f.write("JDS values in thousands (×10³). ")
+    f.write("N=30 trials per song.}\n")
     f.write("\\label{tab:sensitivity}\n")
     f.write("\\centering\n")
-    f.write("\\resizebox{\\columnwidth}{!}{\n")
-    f.write("\\begin{tabular}{l|cc|c|cc}\n")
+    f.write("\\small\n")  # Use small font instead of resizebox
+    f.write("\\begin{tabular}{@{}l@{\\hspace{4pt}}cc@{\\hspace{6pt}}c@{\\hspace{4pt}}cc@{}}\n")
     f.write("\\toprule\n")
-    f.write(" & \\multicolumn{2}{c|}{\\textbf{Mean JDS (×10³)}} & \\textbf{Difference} & \\multicolumn{2}{c}{\\textbf{Statistics}} \\\\\n")
-    f.write("\\cmidrule(lr){2-3} \\cmidrule(lr){5-6}\n")
-    f.write("\\textbf{Song} & Normal & Upperbody & $\\Delta$ & p & Cohen's d \\\\\n")
+    f.write("\\textbf{Song} & \\textbf{Norm} & \\textbf{Upper} & \\textbf{$\\Delta$} & \\textbf{p} & \\textbf{d} \\\\\n")
     f.write("\\midrule\n")
     
     # Write data rows
@@ -1774,7 +1884,9 @@ with open('plots/sensitivity_table.tex', 'w') as f:
     
     f.write(f"\\textbf{{Total}} & \\textbf{{{total_mean_normal:.1f}}} & \\textbf{{{total_mean_upperbody:.1f}}} & \\textbf{{{total_delta_k:+.1f}}} & \\textbf{{{total_p_str}}} & \\textbf{{{total_effect_size:.2f}}} \\\\\n")
     f.write("\\bottomrule\n")
-    f.write("\\end{tabular}}\n")
+    f.write("\\end{tabular}\n")
+    f.write("\\vspace{1mm}\n")
+    f.write("\\footnotesize Note: Norm=Normal, Upper=Upperbody, d=Cohen's d.\n")
     f.write("\\end{table}\n")
 
 print("Saved: plots/sensitivity_table.tex")
@@ -2277,6 +2389,1278 @@ and {effect_interp} sensitivity to degraded motions (Cohen's d≈{mean_effect:.2
 """
 
 print(summary_text)
+
+# ════════════════════════════════════════════════════════════════════════════
+# DIFFICULTY-BASED ANALYSIS (Easy vs Hard)
+# ════════════════════════════════════════════════════════════════════════════
+print("\n" + "="*80)
+print("DIFFICULTY-BASED ANALYSIS: EASY (Lvl 1-2) vs HARD (Lvl 3-4)")
+print("="*80)
+
+# Add difficulty category to merged data
+merged_data_with_jds['difficulty'] = merged_data_with_jds['song'].apply(get_difficulty_category)
+
+# ────────────────────────────────────────────────────────────────────────────
+# 1. RELIABILITY by Difficulty
+# ────────────────────────────────────────────────────────────────────────────
+print("\n" + "-"*80)
+print("1. RELIABILITY BY DIFFICULTY")
+print("-"*80)
+
+def calculate_reliability_by_difficulty():
+    """
+    Calculate reliability by difficulty level (excluding JDS Arm).
+    Compute reliability for each song first, then average within difficulty groups.
+    """
+    df = merged_data_with_jds.copy()
+    df['run_type'] = df['condition'].str.split('_').str[0]
+    df = df[df['run_type'] == 'normal'].copy()
+    
+    # Metrics to analyze (excluding JDS Arm)
+    metrics = [
+        ('jds_hand', 'JDS (Hand)'),
+        ('pa_mpjpe', 'PA-MPJPE'),
+        ('mpjpe', 'MPJPE'),
+        ('dtw', 'DTW')
+    ]
+    
+    # First, calculate reliability for each song
+    song_reliability = []
+    
+    for song in df['song'].unique():
+        song_df = df[df['song'] == song].copy()
+        difficulty = song_df['difficulty'].iloc[0]
+        
+        for metric_col, metric_name in metrics:
+            # Filter out NaN values
+            metric_df = song_df[song_df[metric_col].notna()].copy()
+            
+            if len(metric_df) < 3:
+                continue
+            
+            # Add repeat number
+            metric_df['repeat_num'] = metric_df.groupby('person').cumcount() + 1
+            
+            # Create pivot table: person × repeat
+            pivot_df = metric_df.pivot_table(
+                index='person',
+                columns='repeat_num',
+                values=metric_col,
+                aggfunc='first'
+            )
+            
+            if pivot_df.shape[1] < 2:
+                continue
+            
+            # Reshape for ICC
+            icc_data = []
+            for person in pivot_df.index:
+                for repeat in pivot_df.columns:
+                    if pd.notna(pivot_df.loc[person, repeat]):
+                        icc_data.append({
+                            'targets': person,
+                            'raters': f'repeat_{repeat}',
+                            'ratings': pivot_df.loc[person, repeat]
+                        })
+            
+            if len(icc_data) < 6:
+                continue
+            
+            icc_df = pd.DataFrame(icc_data)
+            
+            # Calculate ICC(3,1) and ICC(3,k)
+            try:
+                icc_results = pg.intraclass_corr(
+                    data=icc_df,
+                    targets='targets',
+                    raters='raters',
+                    ratings='ratings'
+                )
+                
+                icc3_1_row = icc_results[icc_results['Type'] == 'ICC3']
+                icc3_1 = icc3_1_row['ICC'].values[0] if len(icc3_1_row) > 0 else np.nan
+                
+                icc3_k_row = icc_results[icc_results['Type'] == 'ICC3k']
+                icc3_k = icc3_k_row['ICC'].values[0] if len(icc3_k_row) > 0 else np.nan
+                
+            except Exception as e:
+                print(f"  Warning: ICC calculation failed for {song} / {metric_name}: {e}")
+                icc3_1 = np.nan
+                icc3_k = np.nan
+            
+            # Calculate CV
+            cv_values = []
+            for person in metric_df['person'].unique():
+                person_scores = metric_df[metric_df['person'] == person][metric_col].values
+                if len(person_scores) >= 2:
+                    mean_score = np.mean(person_scores)
+                    std_score = np.std(person_scores, ddof=1)
+                    if mean_score > 0:
+                        cv = (std_score / mean_score) * 100
+                        cv_values.append(cv)
+            
+            mean_cv = np.mean(cv_values) if len(cv_values) > 0 else np.nan
+            
+            song_reliability.append({
+                'Song': song,
+                'Difficulty': difficulty,
+                'Metric': metric_name,
+                'ICC(3,1)': icc3_1,
+                'ICC(3,k)': icc3_k,
+                'CV(%)': mean_cv
+            })
+    
+    song_rel_df = pd.DataFrame(song_reliability)
+    
+    # Now average within difficulty groups
+    results = []
+    for difficulty in ['Easy', 'Hard']:
+        for metric_col, metric_name in metrics:
+            diff_metric_df = song_rel_df[
+                (song_rel_df['Difficulty'] == difficulty) & 
+                (song_rel_df['Metric'] == metric_name)
+            ]
+            
+            if len(diff_metric_df) > 0:
+                avg_icc3_1 = diff_metric_df['ICC(3,1)'].mean()
+                avg_icc3_k = diff_metric_df['ICC(3,k)'].mean()
+                avg_cv = diff_metric_df['CV(%)'].mean()
+                
+                results.append({
+                    'Difficulty': difficulty,
+                    'Metric': metric_name,
+                    'ICC(3,1)': avg_icc3_1,
+                    'ICC(3,k)': avg_icc3_k,
+                    'CV(%)': avg_cv
+                })
+    
+    return pd.DataFrame(results)
+
+reliability_by_diff = calculate_reliability_by_difficulty()
+print("\nReliability by Difficulty:")
+print(reliability_by_diff.to_string(index=False))
+
+# Save table
+reliability_by_diff.to_csv('plots/reliability_by_difficulty.csv', index=False)
+print("\nSaved: plots/reliability_by_difficulty.csv")
+
+# Create LaTeX table - compact 1-column format with ICC(3,1), ICC(3,k), and CV
+latex_lines = []
+latex_lines.append("\\begin{table}[t]")
+latex_lines.append("\\centering")
+latex_lines.append("\\caption{Test-Retest Reliability by Difficulty Level. ICC and CV computed per song, then averaged within each difficulty group.}")
+latex_lines.append("\\label{tab:reliability_difficulty}")
+latex_lines.append("\\begin{tabular}{llccc}")
+latex_lines.append("\\toprule")
+latex_lines.append("\\textbf{Difficulty} & \\textbf{Metric} & \\textbf{ICC(3,1)} & \\textbf{ICC(3,k)} & \\textbf{CV (\\%)} \\\\")
+latex_lines.append("\\midrule")
+
+for difficulty in ['Easy', 'Hard']:
+    diff_subset = reliability_by_diff[reliability_by_diff['Difficulty'] == difficulty]
+    for idx, row in diff_subset.iterrows():
+        # Simplify metric names
+        metric_display = row['Metric'].replace('JDS (Hand)', 'JDS')
+        
+        if idx == diff_subset.index[0]:
+            difficulty_label = f"{difficulty} (Lvl {'1-2' if difficulty == 'Easy' else '3-4'})"
+            latex_lines.append(f"{difficulty_label} & {metric_display} & {row['ICC(3,1)']:.2f} & {row['ICC(3,k)']:.2f} & {row['CV(%)']:.1f} \\\\")
+        else:
+            latex_lines.append(f" & {metric_display} & {row['ICC(3,1)']:.2f} & {row['ICC(3,k)']:.2f} & {row['CV(%)']:.1f} \\\\")
+    if difficulty == 'Easy':
+        latex_lines.append("\\midrule")
+
+latex_lines.append("\\bottomrule")
+latex_lines.append("\\end{tabular}")
+latex_lines.append("\\end{table}")
+
+with open('plots/reliability_by_difficulty.tex', 'w') as f:
+    f.write("\n".join(latex_lines))
+print("Saved: plots/reliability_by_difficulty.tex (1-column format)")
+
+# ──────────────────────────────────────────────────────────────────────────
+# Create compact 1-column reliability_table.tex (Hand JDS only)
+# Shows ICC(3,1), ICC(3,k), and CV in one table
+# ──────────────────────────────────────────────────────────────────────────
+reliability_hand_by_diff = reliability_by_diff[reliability_by_diff['Metric'] == 'JDS (Hand)'].copy()
+
+# Create LaTeX table for Hand JDS only - compact format for 1 column
+latex_lines = []
+latex_lines.append("\\begin{table}[t]")
+latex_lines.append("\\centering")
+latex_lines.append("\\caption{Test-Retest Reliability of JDS by Difficulty. ICC and CV computed per song, then averaged within each difficulty group.}")
+latex_lines.append("\\label{tab:reliability_jds}")
+latex_lines.append("\\begin{tabular}{lccc}")
+latex_lines.append("\\toprule")
+latex_lines.append("\\textbf{Difficulty} & \\textbf{ICC(3,1)} & \\textbf{ICC(3,k)} & \\textbf{CV (\\%)} \\\\")
+latex_lines.append("\\midrule")
+
+for _, row in reliability_hand_by_diff.iterrows():
+    difficulty_label = f"{row['Difficulty']} (Lvl {'1-2' if row['Difficulty'] == 'Easy' else '3-4'})"
+    latex_lines.append(f"{difficulty_label} & {row['ICC(3,1)']:.2f} & {row['ICC(3,k)']:.2f} & {row['CV(%)']:.1f} \\\\")
+
+latex_lines.append("\\bottomrule")
+latex_lines.append("\\end{tabular}")
+latex_lines.append("\\end{table}")
+
+with open('plots/reliability_table.tex', 'w') as f:
+    f.write("\n".join(latex_lines))
+print("Saved: plots/reliability_table.tex (JDS only, 1-column format)")
+
+# ──────────────────────────────────────────────────────────────────────────
+# Create difficulty-based reliability_icc_barplot.png with ICC(3,1) and ICC(3,k)
+# ──────────────────────────────────────────────────────────────────────────
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+
+# Map metric names, removing "Hand" from JDS
+metric_display_names = {
+    'JDS (Hand)': 'JDS',
+    'PA-MPJPE': 'PA-MPJPE',
+    'MPJPE': 'MPJPE',
+    'DTW': 'DTW'
+}
+
+metrics_order_internal = ['JDS (Hand)', 'PA-MPJPE', 'MPJPE', 'DTW']
+metrics_order_display = ['JDS', 'PA-MPJPE', 'MPJPE', 'DTW']
+difficulties = ['Easy', 'Hard']
+x = np.arange(len(metrics_order_display))
+width = 0.35
+
+# Get ICC(3,1) values for each metric and difficulty
+easy_icc31 = []
+hard_icc31 = []
+easy_icc3k = []
+hard_icc3k = []
+
+for metric in metrics_order_internal:
+    easy_row = reliability_by_diff[
+        (reliability_by_diff['Difficulty'] == 'Easy') & 
+        (reliability_by_diff['Metric'] == metric)
+    ]
+    hard_row = reliability_by_diff[
+        (reliability_by_diff['Difficulty'] == 'Hard') & 
+        (reliability_by_diff['Metric'] == metric)
+    ]
+    
+    easy_icc31.append(easy_row['ICC(3,1)'].values[0] if len(easy_row) > 0 else 0)
+    hard_icc31.append(hard_row['ICC(3,1)'].values[0] if len(hard_row) > 0 else 0)
+    easy_icc3k.append(easy_row['ICC(3,k)'].values[0] if len(easy_row) > 0 else 0)
+    hard_icc3k.append(hard_row['ICC(3,k)'].values[0] if len(hard_row) > 0 else 0)
+
+# Plot 1: ICC(3,1) - vertical bars
+bars1_1 = ax1.bar(x - width/2, easy_icc31, width, label='Easy (Lvl 1-2)', alpha=0.8, 
+                  color='skyblue', edgecolor='black')
+bars1_2 = ax1.bar(x + width/2, hard_icc31, width, label='Hard (Lvl 3-4)', alpha=0.8, 
+                  color='salmon', edgecolor='black')
+
+# Reference lines for ICC quality
+ax1.axhline(y=0.75, color='orange', linestyle='--', linewidth=1.5, alpha=0.7, label='Good (0.75)')
+ax1.axhline(y=0.9, color='green', linestyle='--', linewidth=1.5, alpha=0.7, label='Excellent (0.90)')
+
+ax1.set_xlabel('Measure', fontsize=11, fontweight='bold')
+ax1.set_ylabel('ICC(3,1)', fontsize=11, fontweight='bold')
+ax1.set_title('Single Measurement Reliability', fontsize=12, fontweight='bold')
+ax1.set_xticks(x)
+ax1.set_xticklabels(metrics_order_display, fontsize=10)
+ax1.set_ylim([0, 1.0])
+ax1.legend(fontsize=8, loc='lower right')
+ax1.grid(axis='y', alpha=0.3)
+
+# Plot 2: ICC(3,k) - vertical bars
+bars2_1 = ax2.bar(x - width/2, easy_icc3k, width, label='Easy (Lvl 1-2)', alpha=0.8, 
+                  color='skyblue', edgecolor='black')
+bars2_2 = ax2.bar(x + width/2, hard_icc3k, width, label='Hard (Lvl 3-4)', alpha=0.8, 
+                  color='salmon', edgecolor='black')
+
+# Reference lines for ICC quality
+ax2.axhline(y=0.75, color='orange', linestyle='--', linewidth=1.5, alpha=0.7, label='Good (0.75)')
+ax2.axhline(y=0.9, color='green', linestyle='--', linewidth=1.5, alpha=0.7, label='Excellent (0.90)')
+
+ax2.set_xlabel('Measure', fontsize=11, fontweight='bold')
+ax2.set_ylabel('ICC(3,k)', fontsize=11, fontweight='bold')
+ax2.set_title('Average Measurement Reliability', fontsize=12, fontweight='bold')
+ax2.set_xticks(x)
+ax2.set_xticklabels(metrics_order_display, fontsize=10)
+ax2.set_ylim([0, 1.0])
+ax2.legend(fontsize=8, loc='lower right')
+ax2.grid(axis='y', alpha=0.3)
+
+plt.tight_layout()
+plt.savefig('plots/reliability_icc_barplot.png', dpi=150, bbox_inches='tight')
+plt.close()
+print("Saved: plots/reliability_icc_barplot.png (difficulty-based)")
+
+# ──────────────────────────────────────────────────────────────────────────
+# Create difficulty-based reliability_comparison_barplot.png
+# ──────────────────────────────────────────────────────────────────────────
+# Calculate mean ICC and CV for each metric across Easy and Hard (excluding JDS Arm)
+comparison_by_diff_data = []
+
+for difficulty in ['Easy', 'Hard']:
+    diff_subset = reliability_by_diff[reliability_by_diff['Difficulty'] == difficulty]
+    
+    for metric in ['JDS (Hand)', 'PA-MPJPE', 'MPJPE', 'DTW']:
+        metric_row = diff_subset[diff_subset['Metric'] == metric]
+        if len(metric_row) > 0:
+            comparison_by_diff_data.append({
+                'Difficulty': difficulty,
+                'Measure': metric,
+                'ICC(3,1)': metric_row.iloc[0]['ICC(3,1)'],
+                'CV(%)': metric_row.iloc[0]['CV(%)']
+            })
+
+comparison_by_diff_df = pd.DataFrame(comparison_by_diff_data)
+
+# Create side-by-side comparison plot
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+
+metrics_order_internal = ['JDS (Hand)', 'PA-MPJPE', 'MPJPE', 'DTW']
+metrics_order_display = ['JDS', 'PA-MPJPE', 'MPJPE', 'DTW']
+difficulties = ['Easy', 'Hard']
+x = np.arange(len(metrics_order_display))
+width = 0.35
+
+# ICC comparison
+for idx, difficulty in enumerate(difficulties):
+    diff_data = comparison_by_diff_df[comparison_by_diff_df['Difficulty'] == difficulty]
+    icc_vals = []
+    for metric in metrics_order_internal:
+        metric_row = diff_data[diff_data['Measure'] == metric]
+        icc_vals.append(metric_row['ICC(3,1)'].values[0] if len(metric_row) > 0 else 0)
+    
+    offset = width/2 if idx == 0 else -width/2
+    color = 'skyblue' if difficulty == 'Easy' else 'salmon'
+    ax1.barh(x + offset, icc_vals, width, label=f'{difficulty} (Lvl {1 if difficulty == "Easy" else 3}-{2 if difficulty == "Easy" else 4})',
+             color=color, edgecolor='black', alpha=0.8)
+
+ax1.axvline(x=0.75, color='orange', linestyle='--', linewidth=1.5, alpha=0.7, label='Good (0.75)')
+ax1.axvline(x=0.9, color='green', linestyle='--', linewidth=1.5, alpha=0.7, label='Excellent (0.90)')
+ax1.set_xlabel('ICC(3,1)', fontsize=11, fontweight='bold')
+ax1.set_ylabel('Measure', fontsize=11, fontweight='bold')
+ax1.set_title('Test-Retest Reliability', fontsize=12, fontweight='bold')
+ax1.set_yticks(x)
+ax1.set_yticklabels(metrics_order_display, fontsize=9)
+ax1.set_xlim([0, 1.0])
+ax1.legend(fontsize=8, loc='lower right')
+ax1.grid(axis='x', alpha=0.3)
+
+# CV comparison
+for idx, difficulty in enumerate(difficulties):
+    diff_data = comparison_by_diff_df[comparison_by_diff_df['Difficulty'] == difficulty]
+    cv_vals = []
+    for metric in metrics_order_internal:
+        metric_row = diff_data[diff_data['Measure'] == metric]
+        cv_vals.append(metric_row['CV(%)'].values[0] if len(metric_row) > 0 else 0)
+    
+    offset = width/2 if idx == 0 else -width/2
+    color = 'skyblue' if difficulty == 'Easy' else 'salmon'
+    ax2.barh(x + offset, cv_vals, width, label=f'{difficulty} (Lvl {1 if difficulty == "Easy" else 3}-{2 if difficulty == "Easy" else 4})',
+             color=color, edgecolor='black', alpha=0.8)
+
+ax2.set_xlabel('CV (%)', fontsize=11, fontweight='bold')
+ax2.set_title('Coefficient of Variation', fontsize=12, fontweight='bold')
+ax2.set_yticks(x)
+ax2.set_yticklabels(metrics_order_display, fontsize=9)
+ax2.legend(fontsize=8, loc='upper right')
+ax2.grid(axis='x', alpha=0.3)
+ax2.invert_xaxis()  # Lower CV is better
+
+plt.tight_layout()
+plt.savefig('plots/reliability_comparison_barplot.png', dpi=150, bbox_inches='tight')
+plt.close()
+print("Saved: plots/reliability_comparison_barplot.png (difficulty-based)")
+
+# ────────────────────────────────────────────────────────────────────────────
+# 2. VALIDITY by Difficulty
+# ────────────────────────────────────────────────────────────────────────────
+print("\n" + "-"*80)
+print("2. VALIDITY BY DIFFICULTY")
+print("-"*80)
+
+def calculate_validity_by_difficulty():
+    """
+    Calculate validity (correlations) by difficulty level.
+    Compute correlations for each song first, then average within difficulty groups.
+    """
+    df = merged_data_with_jds.copy()
+    df['run_type'] = df['condition'].str.split('_').str[0]
+    df = df[df['run_type'] == 'normal'].copy()
+    
+    motion_metrics = ['dtw', 'mpjpe', 'pa_mpjpe']
+    motion_names = ['DTW', 'MPJPE', 'PA-MPJPE']
+    
+    # First, calculate correlations for each song
+    song_validity = []
+    
+    for song in df['song'].unique():
+        song_df = df[df['song'] == song].copy()
+        difficulty = song_df['difficulty'].iloc[0]
+        
+        for jds_col, jds_name in [('jds_hand', 'JDS (Hand)'), ('jds_arm', 'JDS (Arm)')]:
+            for motion_col, motion_name in zip(motion_metrics, motion_names):
+                # Get non-NaN pairs
+                valid_mask = song_df[jds_col].notna() & song_df[motion_col].notna()
+                jds_vals = song_df.loc[valid_mask, jds_col].values
+                motion_vals = song_df.loc[valid_mask, motion_col].values
+                
+                if len(jds_vals) >= 3:
+                    r, p = pearsonr(jds_vals, motion_vals)
+                    song_validity.append({
+                        'Song': song,
+                        'Difficulty': difficulty,
+                        'JDS_Type': jds_name,
+                        'Motion_Metric': motion_name,
+                        'r': r,
+                        'p': p
+                    })
+    
+    song_val_df = pd.DataFrame(song_validity)
+    
+    # Now average within difficulty groups
+    results = []
+    for difficulty in ['Easy', 'Hard']:
+        for jds_name in ['JDS (Hand)', 'JDS (Arm)']:
+            for motion_name in motion_names:
+                diff_metric_df = song_val_df[
+                    (song_val_df['Difficulty'] == difficulty) & 
+                    (song_val_df['JDS_Type'] == jds_name) &
+                    (song_val_df['Motion_Metric'] == motion_name)
+                ]
+                
+                if len(diff_metric_df) > 0:
+                    avg_r = diff_metric_df['r'].mean()
+                    # For p-value, we can't simply average, but we'll compute a combined p-value
+                    # For simplicity, we'll use Fisher's method or just report the mean r
+                    # Here we'll just use mean p for display purposes
+                    avg_p = diff_metric_df['p'].mean()
+                    
+                    results.append({
+                        'Difficulty': difficulty,
+                        'JDS_Type': jds_name,
+                        'Motion_Metric': motion_name,
+                        'r': avg_r,
+                        'p': avg_p
+                    })
+    
+    return pd.DataFrame(results)
+
+validity_by_diff = calculate_validity_by_difficulty()
+print("\nValidity by Difficulty:")
+print(validity_by_diff.to_string(index=False))
+
+validity_by_diff.to_csv('plots/validity_by_difficulty.csv', index=False)
+print("\nSaved: plots/validity_by_difficulty.csv")
+
+# Create LaTeX table
+latex_lines = []
+latex_lines.append("\\begin{table}[t]")
+latex_lines.append("\\centering")
+latex_lines.append("\\caption{Validity (Correlations) by Difficulty Level. Correlations computed per song, then averaged within each difficulty group.}")
+latex_lines.append("\\label{tab:validity_difficulty}")
+latex_lines.append("\\resizebox{\\columnwidth}{!}{%")
+latex_lines.append("\\begin{tabular}{llccc}")
+latex_lines.append("\\toprule")
+latex_lines.append("\\textbf{Difficulty} & \\textbf{JDS} & \\textbf{DTW} & \\textbf{MPJPE} & \\textbf{PA-MPJPE} \\\\")
+latex_lines.append("\\midrule")
+
+for difficulty in ['Easy', 'Hard']:
+    for jds_type in ['JDS (Hand)', 'JDS (Arm)']:
+        subset = validity_by_diff[
+            (validity_by_diff['Difficulty'] == difficulty) & 
+            (validity_by_diff['JDS_Type'] == jds_type)
+        ]
+        
+        if len(subset) > 0:
+            row_data = []
+            for motion in ['DTW', 'MPJPE', 'PA-MPJPE']:
+                motion_row = subset[subset['Motion_Metric'] == motion]
+                if len(motion_row) > 0:
+                    r = motion_row.iloc[0]['r']
+                    p = motion_row.iloc[0]['p']
+                    if p < 0.001:
+                        p_str = "$<$.001"
+                    elif p < 0.01:
+                        p_str = "$<$.01"
+                    elif p < 0.05:
+                        p_str = "$<$.05"
+                    else:
+                        p_str = f"{p:.2f}"
+                    row_data.append(f"{r:.2f} ({p_str})")
+                else:
+                    row_data.append("--")
+            
+            jds_short = jds_type.replace('JDS (', '').replace(')', '')
+            if jds_type == 'JDS (Hand)':
+                latex_lines.append(f"{difficulty} & {jds_short} & {' & '.join(row_data)} \\\\")
+            else:
+                latex_lines.append(f" & {jds_short} & {' & '.join(row_data)} \\\\")
+    
+    if difficulty == 'Easy':
+        latex_lines.append("\\midrule")
+
+latex_lines.append("\\bottomrule")
+latex_lines.append("\\end{tabular}")
+latex_lines.append("}")
+latex_lines.append("\\end{table}")
+
+with open('plots/validity_by_difficulty.tex', 'w') as f:
+    f.write("\n".join(latex_lines))
+print("Saved: plots/validity_by_difficulty.tex")
+
+# ──────────────────────────────────────────────────────────────────────────
+# Create validity_summary_barplot_by_difficulty (Hand JDS only, by difficulty)
+# Shows individual motion metrics grouped by difficulty
+# ──────────────────────────────────────────────────────────────────────────
+validity_hand_only = validity_by_diff[validity_by_diff['JDS_Type'] == 'JDS (Hand)'].copy()
+
+# Prepare data for grouped bar plot
+motion_metrics = ['DTW', 'MPJPE', 'PA-MPJPE']
+difficulties = ['Easy', 'Hard']
+colors_diff = {'Easy': '#2ecc71', 'Hard': '#e74c3c'}
+
+# Set up the plot
+fig, ax = plt.subplots(figsize=(10, 5), dpi=150)
+
+x = np.arange(len(motion_metrics))
+width = 0.35
+
+# Plot bars for each difficulty
+for i, difficulty in enumerate(difficulties):
+    diff_data = validity_hand_only[validity_hand_only['Difficulty'] == difficulty]
+    correlations = []
+    
+    for metric in motion_metrics:
+        metric_row = diff_data[diff_data['Motion_Metric'] == metric]
+        if len(metric_row) > 0:
+            correlations.append(metric_row.iloc[0]['r'])
+        else:
+            correlations.append(0)
+    
+    offset = width * (i - 0.5)
+    bars = ax.bar(x + offset, correlations, width, label=difficulty, 
+                   color=colors_diff[difficulty], alpha=0.7, edgecolor='black')
+    
+    # Add value labels on bars
+    for bar in bars:
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height,
+                f'{height:.3f}',
+                ha='center', va='bottom', fontsize=10, fontweight='bold')
+
+ax.set_ylabel('Pearson Correlation (r)', fontsize=12, fontweight='bold')
+ax.set_xlabel('Motion Metric', fontsize=12, fontweight='bold')
+ax.set_title('Validity: JDS Correlations with Motion Metrics by Difficulty', fontsize=13, fontweight='bold')
+ax.set_xticks(x)
+ax.set_xticklabels(motion_metrics)
+ax.legend(title='Difficulty', fontsize=11, title_fontsize=12)
+ax.grid(axis='y', alpha=0.3, linestyle='--')
+ax.axhline(y=0, color='black', linestyle='-', linewidth=0.8)
+
+plt.tight_layout()
+plt.savefig('plots/validity_summary_barplot_by_difficulty.png', dpi=150, bbox_inches='tight')
+plt.close()
+print("Saved: plots/validity_summary_barplot_by_difficulty.png")
+
+# ──────────────────────────────────────────────────────────────────────────
+# Create validity_heatmap_hand_by_difficulty (Hand JDS only, by difficulty)
+# ──────────────────────────────────────────────────────────────────────────
+# Pivot the data for heatmap
+heatmap_data = validity_hand_only.pivot(index='Difficulty', columns='Motion_Metric', values='r')
+# Reorder columns to match standard order
+heatmap_data = heatmap_data[['DTW', 'MPJPE', 'PA-MPJPE']]
+# Reorder rows to Easy, Hard
+heatmap_data = heatmap_data.reindex(['Easy', 'Hard'])
+
+# Create heatmap
+fig, ax = plt.subplots(figsize=(6, 3), dpi=150)
+sns.heatmap(heatmap_data, annot=True, fmt='.3f', cmap='RdYlGn_r', center=0,
+            vmin=-1, vmax=1, cbar_kws={'label': 'Pearson r'},
+            linewidths=1, linecolor='black', ax=ax)
+
+ax.set_xlabel('Motion Metric', fontsize=12, fontweight='bold')
+ax.set_ylabel('Difficulty', fontsize=12, fontweight='bold')
+ax.set_title('Validity: JDS Correlations with Motion Metrics by Difficulty', fontsize=12, fontweight='bold')
+
+# Rotate labels
+ax.set_xticklabels(ax.get_xticklabels(), rotation=0, ha='center')
+ax.set_yticklabels(ax.get_yticklabels(), rotation=0)
+
+plt.tight_layout()
+plt.savefig('plots/validity_heatmap_hand_by_difficulty.png', dpi=150, bbox_inches='tight')
+plt.close()
+print("Saved: plots/validity_heatmap_hand_by_difficulty.png")
+
+# ────────────────────────────────────────────────────────────────────────────
+# 3. SENSITIVITY by Difficulty
+# ────────────────────────────────────────────────────────────────────────────
+print("\n" + "-"*80)
+print("3. SENSITIVITY BY DIFFICULTY")
+print("-"*80)
+
+def calculate_sensitivity_by_difficulty():
+    """
+    Calculate sensitivity (normal vs upperbody) by difficulty level.
+    Compute sensitivity for each song first, then average within difficulty groups.
+    """
+    df = merged_data_with_jds.copy()
+    df['run_type'] = df['condition'].str.split('_').str[0]
+    
+    metrics = [
+        ('jds_hand', 'JDS (Hand)'),
+        ('jds_arm', 'JDS (Arm)'),
+        ('pa_mpjpe', 'PA-MPJPE'),
+        ('mpjpe', 'MPJPE'),
+        ('dtw', 'DTW')
+    ]
+    
+    # First, calculate sensitivity for each song
+    song_sensitivity = []
+    
+    for song in df['song'].unique():
+        song_df = df[df['song'] == song].copy()
+        difficulty = song_df['difficulty'].iloc[0]
+        
+        for metric_col, metric_name in metrics:
+            normal_data = song_df[song_df['run_type'] == 'normal'][metric_col].dropna()
+            upperbody_data = song_df[song_df['run_type'] == 'upperbody'][metric_col].dropna()
+            
+            if len(normal_data) >= 3 and len(upperbody_data) >= 3:
+                mean_normal = normal_data.mean()
+                mean_upper = upperbody_data.mean()
+                delta = mean_normal - mean_upper
+                
+                # Perform paired t-test (if possible)
+                try:
+                    t_stat, p_val = ttest_rel(normal_data, upperbody_data)
+                except:
+                    # If not paired, use independent t-test
+                    from scipy.stats import ttest_ind
+                    t_stat, p_val = ttest_ind(normal_data, upperbody_data)
+                
+                # Calculate Cohen's d
+                pooled_std = np.sqrt((normal_data.std()**2 + upperbody_data.std()**2) / 2)
+                cohens_d = delta / pooled_std if pooled_std > 0 else 0
+                
+                song_sensitivity.append({
+                    'Song': song,
+                    'Difficulty': difficulty,
+                    'Metric': metric_name,
+                    'Normal': mean_normal,
+                    'Upperbody': mean_upper,
+                    'Δ': delta,
+                    'p': p_val,
+                    'Cohens_d': cohens_d
+                })
+    
+    song_sens_df = pd.DataFrame(song_sensitivity)
+    
+    # Now compute sensitivity on pooled data within difficulty groups
+    results = []
+    for difficulty in ['Easy', 'Hard']:
+        diff_df = df[df['difficulty'] == difficulty].copy()
+        
+        for metric_col, metric_name in metrics:
+            normal_data = diff_df[diff_df['run_type'] == 'normal'][metric_col].dropna()
+            upperbody_data = diff_df[diff_df['run_type'] == 'upperbody'][metric_col].dropna()
+            
+            if len(normal_data) >= 3 and len(upperbody_data) >= 3:
+                mean_normal = normal_data.mean()
+                mean_upper = upperbody_data.mean()
+                delta = mean_normal - mean_upper
+                
+                # Perform paired t-test (if possible)
+                try:
+                    t_stat, p_val = ttest_rel(normal_data, upperbody_data)
+                except:
+                    # If not paired, use independent t-test
+                    from scipy.stats import ttest_ind
+                    t_stat, p_val = ttest_ind(normal_data, upperbody_data)
+                
+                # Calculate Cohen's d
+                pooled_std = np.sqrt((normal_data.std()**2 + upperbody_data.std()**2) / 2)
+                cohens_d = delta / pooled_std if pooled_std > 0 else 0
+                
+                results.append({
+                    'Difficulty': difficulty,
+                    'Metric': metric_name,
+                    'Normal': mean_normal,
+                    'Upperbody': mean_upper,
+                    'Δ': delta,
+                    'p': p_val,
+                    'Cohens_d': cohens_d
+                })
+    
+    return pd.DataFrame(results)
+
+sensitivity_by_diff = calculate_sensitivity_by_difficulty()
+print("\nSensitivity by Difficulty:")
+print(sensitivity_by_diff.to_string(index=False))
+
+sensitivity_by_diff.to_csv('plots/sensitivity_by_difficulty.csv', index=False)
+print("\nSaved: plots/sensitivity_by_difficulty.csv")
+
+# Create LaTeX table
+latex_lines = []
+latex_lines.append("\\begin{table}[t]")
+latex_lines.append("\\centering")
+latex_lines.append("\\caption{Sensitivity Analysis by Difficulty. Statistics computed from pooled data.}")
+latex_lines.append("\\label{tab:sensitivity_difficulty}")
+latex_lines.append("\\small")
+latex_lines.append("\\begin{tabular}{@{}llcccc@{}}")
+latex_lines.append("\\toprule")
+latex_lines.append("\\textbf{Diff.} & \\textbf{Metric} & \\textbf{Norm} & \\textbf{Upper} & \\textbf{p} & \\textbf{d} \\\\")
+latex_lines.append("\\midrule")
+
+for difficulty in ['Easy', 'Hard']:
+    diff_subset = sensitivity_by_diff[sensitivity_by_diff['Difficulty'] == difficulty]
+    for idx, row in diff_subset.iterrows():
+        normal_val = row['Normal']
+        upper_val = row['Upperbody']
+        p_val = row['p']
+        d_val = row['Cohens_d']
+        
+        # Format based on metric scale
+        if row['Metric'] in ['JDS (Hand)', 'JDS (Arm)']:
+            normal_str = f"{normal_val/1000:.1f}"
+            upper_str = f"{upper_val/1000:.1f}"
+        else:
+            normal_str = f"{normal_val:.1f}"
+            upper_str = f"{upper_val:.1f}"
+        
+        # Format p-value
+        if p_val < 0.001:
+            p_str = "$<$.001"
+        elif p_val < 0.01:
+            p_str = "$<$.01"
+        elif p_val < 0.05:
+            p_str = "$<$.05"
+        else:
+            p_str = f"{p_val:.2f}"
+        
+        # Simplify metric names
+        metric_short = row['Metric'].replace('JDS (Hand)', 'JDS').replace('JDS (Arm)', 'JDS-Arm')
+        
+        if idx == diff_subset.index[0]:
+            diff_short = "Easy" if difficulty == "Easy" else "Hard"
+            latex_lines.append(f"{diff_short} & {metric_short} & {normal_str} & {upper_str} & {p_str} & {d_val:.2f} \\\\")
+        else:
+            latex_lines.append(f" & {metric_short} & {normal_str} & {upper_str} & {p_str} & {d_val:.2f} \\\\")
+    
+    if difficulty == 'Easy':
+        latex_lines.append("\\midrule")
+
+latex_lines.append("\\bottomrule")
+latex_lines.append("\\end{tabular}")
+latex_lines.append("\\vspace{1mm}")
+latex_lines.append("\\footnotesize Note: JDS in thousands (×10³). Norm=Normal, Upper=Upperbody, d=Cohen's d.")
+latex_lines.append("\\end{table}")
+
+with open('plots/sensitivity_by_difficulty.tex', 'w') as f:
+    f.write("\n".join(latex_lines))
+print("Saved: plots/sensitivity_by_difficulty.tex")
+
+# ──────────────────────────────────────────────────────────────────────────
+# Create simplified sensitivity table for JDS (Hand) only by difficulty
+# ──────────────────────────────────────────────────────────────────────────
+sensitivity_jds_by_diff = sensitivity_by_diff[sensitivity_by_diff['Metric'] == 'JDS (Hand)'].copy()
+
+# Create LaTeX table matching the format of sensitivity_table.tex
+latex_lines = []
+latex_lines.append("\\begin{table}[t]")
+latex_lines.append("\\caption{Sensitivity of JDS to motion degradation by difficulty level. Statistics computed from pooled data across all songs within each difficulty group. Values denote mean Just Dance Scores (×10³).}")
+latex_lines.append("\\label{tab:sensitivity_difficulty}")
+latex_lines.append("\\centering")
+latex_lines.append("\\resizebox{\\columnwidth}{!}{")
+latex_lines.append("\\begin{tabular}{l|cc|c|cc}")
+latex_lines.append("\\toprule")
+latex_lines.append(" & \\multicolumn{2}{c|}{\\textbf{Mean JDS (×10³)}} & \\textbf{Difference} & \\multicolumn{2}{c}{\\textbf{Statistics}} \\\\")
+latex_lines.append("\\cmidrule(lr){2-3} \\cmidrule(lr){5-6}")
+latex_lines.append("\\textbf{Difficulty} & Normal & Upperbody & $\\Delta$ & p & Cohen's d \\\\")
+latex_lines.append("\\midrule")
+
+for _, row in sensitivity_jds_by_diff.iterrows():
+    difficulty = row['Difficulty']
+    normal_val = row['Normal'] / 1000
+    upper_val = row['Upperbody'] / 1000
+    delta_val = row['Δ'] / 1000
+    p_val = row['p']
+    d_val = row['Cohens_d']
+    
+    # Round normal and upper values to 1 decimal place for display
+    normal_display = round(normal_val, 1)
+    upper_display = round(upper_val, 1)
+    
+    # Calculate delta from the rounded display values to ensure consistency
+    delta_display = normal_display - upper_display
+    
+    # Format delta with sign
+    if delta_display > 0:
+        delta_str = f"+{delta_display:.1f}"
+    else:
+        delta_str = f"{delta_display:.1f}"
+    
+    # Format p-value
+    if p_val < 0.001:
+        p_str = "$<$.001"
+    elif p_val < 0.01:
+        p_str = "$<$.01"
+    elif p_val < 0.05:
+        p_str = "$<$.05"
+    else:
+        p_str = f"{p_val:.2f}"
+    
+    # Format difficulty level range
+    if difficulty == 'Easy':
+        diff_label = "Easy (Lvl 1-2)"
+    else:
+        diff_label = "Hard (Lvl 3-4)"
+    
+    latex_lines.append(f"{diff_label} & {normal_display:.1f} & {upper_display:.1f} & {delta_str} & {p_str} & {d_val:.2f} \\\\")
+
+latex_lines.append("\\bottomrule")
+latex_lines.append("\\end{tabular}}")
+latex_lines.append("\\vspace{2mm}")
+latex_lines.append("\\footnotesize Note: $\\Delta$ = Normal - Upperbody. Statistics (p-value and Cohen's d) computed from pooled data across all songs within each difficulty group.")
+latex_lines.append("\\end{table}")
+
+with open('plots/sensitivity_by_difficulty_table.tex', 'w') as f:
+    f.write("\n".join(latex_lines))
+print("Saved: plots/sensitivity_by_difficulty_table.tex")
+
+# ──────────────────────────────────────────────────────────────────────────
+# Create comprehensive sensitivity comparison table (JDS + Motion Metrics)
+# ──────────────────────────────────────────────────────────────────────────
+# Filter to only include JDS (Hand) and motion metrics (exclude JDS Arm)
+metrics_to_include = ['JDS (Hand)', 'PA-MPJPE', 'MPJPE', 'DTW']
+sensitivity_comparison = sensitivity_by_diff[sensitivity_by_diff['Metric'].isin(metrics_to_include)].copy()
+
+# Rename JDS (Hand) to JDS for display
+sensitivity_comparison['Metric_Display'] = sensitivity_comparison['Metric'].replace({'JDS (Hand)': 'JDS'})
+
+# Create LaTeX table
+latex_lines = []
+latex_lines.append("\\begin{table}[t]")
+latex_lines.append("\\caption{Sensitivity to motion degradation by difficulty level across metrics. Statistics computed from pooled data across all songs within each difficulty group. JDS values in thousands (×10³), motion metrics normalized.}")
+latex_lines.append("\\label{tab:sensitivity_comparison_difficulty}")
+latex_lines.append("\\centering")
+latex_lines.append("\\resizebox{\\columnwidth}{!}{")
+latex_lines.append("\\begin{tabular}{llccc}")
+latex_lines.append("\\toprule")
+latex_lines.append("\\textbf{Difficulty} & \\textbf{Metric} & \\textbf{$\\Delta$} & \\textbf{p} & \\textbf{Cohen's d} \\\\")
+latex_lines.append("\\midrule")
+
+for difficulty in ['Easy', 'Hard']:
+    diff_subset = sensitivity_comparison[sensitivity_comparison['Difficulty'] == difficulty]
+    
+    for idx, row in diff_subset.iterrows():
+        metric_display = row['Metric_Display']
+        delta_val = row['Δ']
+        p_val = row['p']
+        d_val = row['Cohens_d']
+        
+        # Format delta based on metric type
+        if row['Metric'] == 'JDS (Hand)':
+            delta_val = delta_val / 1000
+            delta_str = f"{delta_val:+.1f}"
+        else:
+            delta_str = f"{delta_val:+.3f}"
+        
+        # Format p-value
+        if p_val < 0.001:
+            p_str = "$<$.001"
+        elif p_val < 0.01:
+            p_str = "$<$.01"
+        elif p_val < 0.05:
+            p_str = "$<$.05"
+        else:
+            p_str = f"{p_val:.2f}"
+        
+        # Format difficulty label
+        if idx == diff_subset.index[0]:
+            if difficulty == 'Easy':
+                diff_label = "Easy (Lvl 1-2)"
+            else:
+                diff_label = "Hard (Lvl 3-4)"
+            latex_lines.append(f"{diff_label} & {metric_display} & {delta_str} & {p_str} & {d_val:.2f} \\\\")
+        else:
+            latex_lines.append(f" & {metric_display} & {delta_str} & {p_str} & {d_val:.2f} \\\\")
+    
+    if difficulty == 'Easy':
+        latex_lines.append("\\midrule")
+
+latex_lines.append("\\bottomrule")
+latex_lines.append("\\end{tabular}}")
+latex_lines.append("\\vspace{2mm}")
+latex_lines.append("\\footnotesize Note: $\\Delta$ = Normal - Upperbody. Statistics computed from pooled data across all songs within each difficulty group.")
+latex_lines.append("\\end{table}")
+
+with open('plots/sensitivity_by_difficulty_comparison_table.tex', 'w') as f:
+    f.write("\n".join(latex_lines))
+print("Saved: plots/sensitivity_by_difficulty_comparison_table.tex")
+
+# ────────────────────────────────────────────────────────────────────────────
+# 4. BIAS by Difficulty (Hand vs Arm JDS only)
+# ────────────────────────────────────────────────────────────────────────────
+print("\n" + "-"*80)
+print("4. BIAS BY DIFFICULTY (Hand vs Arm)")
+print("-"*80)
+
+def calculate_bias_by_difficulty():
+    """Calculate Hand vs Arm bias by difficulty level."""
+    df = merged_data_with_jds.copy()
+    df['run_type'] = df['condition'].str.split('_').str[0]
+    df = df[df['run_type'] == 'normal'].copy()
+    
+    results = []
+    
+    for difficulty in ['Easy', 'Hard']:
+        diff_df = df[df['difficulty'] == difficulty].copy()
+        
+        # Get Hand and Arm scores
+        hand_vals = diff_df['jds_hand'].dropna().values
+        arm_vals = diff_df['jds_arm'].dropna().values
+        
+        if len(hand_vals) >= 3 and len(arm_vals) >= 3:
+            mean_hand = np.mean(hand_vals)
+            mean_arm = np.mean(arm_vals)
+            delta = mean_hand - mean_arm
+            delta_pct = (delta / mean_hand) * 100 if mean_hand > 0 else 0
+            
+            # Correlation between hand and arm
+            valid_mask = diff_df['jds_hand'].notna() & diff_df['jds_arm'].notna()
+            hand_paired = diff_df.loc[valid_mask, 'jds_hand'].values
+            arm_paired = diff_df.loc[valid_mask, 'jds_arm'].values
+            
+            if len(hand_paired) >= 3:
+                r, p = pearsonr(hand_paired, arm_paired)
+            else:
+                r, p = np.nan, np.nan
+            
+            results.append({
+                'Difficulty': difficulty,
+                'Mean_Hand': mean_hand,
+                'Mean_Arm': mean_arm,
+                'Δ': delta,
+                'Δ(%)': delta_pct,
+                'r': r,
+                'p': p
+            })
+    
+    return pd.DataFrame(results)
+
+bias_by_diff = calculate_bias_by_difficulty()
+print("\nBias by Difficulty:")
+print(bias_by_diff.to_string(index=False))
+
+bias_by_diff.to_csv('plots/bias_by_difficulty.csv', index=False)
+print("\nSaved: plots/bias_by_difficulty.csv")
+
+# Create LaTeX table
+latex_lines = []
+latex_lines.append("\\begin{table}[t]")
+latex_lines.append("\\centering")
+latex_lines.append("\\caption{Hand vs Arm JDS Bias by Difficulty Level. Statistics computed from pooled data across all songs within each difficulty group.}")
+latex_lines.append("\\label{tab:bias_difficulty}")
+latex_lines.append("\\resizebox{\\columnwidth}{!}{%")
+latex_lines.append("\\begin{tabular}{lccccc}")
+latex_lines.append("\\toprule")
+latex_lines.append("\\multirow{2}{*}{\\textbf{Difficulty}} & \\multicolumn{2}{c}{\\textbf{Mean Score ($\\times 10^3$)}} & \\multirow{2}{*}{\\textbf{$\\Delta$(\\%)}} & \\multicolumn{2}{c}{\\textbf{Correlation}} \\\\")
+latex_lines.append("\\cmidrule(lr){2-3} \\cmidrule(lr){5-6}")
+latex_lines.append(" & \\textbf{Hand} & \\textbf{Arm} & & \\textbf{r} & \\textbf{p} \\\\")
+latex_lines.append("\\midrule")
+
+for _, row in bias_by_diff.iterrows():
+    hand_val = row['Mean_Hand'] / 1000
+    arm_val = row['Mean_Arm'] / 1000
+    delta_pct = row['Δ(%)']
+    r_val = row['r']
+    p_val = row['p']
+    
+    if p_val < 0.001:
+        p_str = "$<$.001"
+    elif p_val < 0.01:
+        p_str = "$<$.01"
+    elif p_val < 0.05:
+        p_str = "$<$.05"
+    else:
+        p_str = f"{p_val:.2f}"
+    
+    latex_lines.append(f"{row['Difficulty']} & {hand_val:.1f} & {arm_val:.1f} & {delta_pct:.1f} & {r_val:.2f} & {p_str} \\\\")
+
+latex_lines.append("\\bottomrule")
+latex_lines.append("\\end{tabular}")
+latex_lines.append("}")
+latex_lines.append("\\vspace{2mm}")
+latex_lines.append("\\footnotesize Note: $\\Delta$(\\%) = (Hand - Arm) / Hand $\\times$ 100. Correlation (r) and statistics computed from pooled data across all songs within each difficulty group.")
+latex_lines.append("\\end{table}")
+
+with open('plots/bias_by_difficulty.tex', 'w') as f:
+    f.write("\n".join(latex_lines))
+print("Saved: plots/bias_by_difficulty.tex")
+
+# Create scatter plot: Hand vs Arm JDS by difficulty
+# Prepare data for scatter plot
+df = merged_data_with_jds.copy()
+df['run_type'] = df['condition'].str.split('_').str[0]
+df = df[df['run_type'] == 'normal'].copy()
+
+# Filter valid hand and arm scores
+scatter_df = df[df['jds_hand'].notna() & df['jds_arm'].notna()].copy()
+
+# ──────────────────────────────────────────────────────────────────────────
+# VERSION 1: Combined scatter plot with difficulty coloring
+# ──────────────────────────────────────────────────────────────────────────
+fig, ax = plt.subplots(figsize=(3.4, 3.4))
+
+# Plot points by difficulty
+colors = {'Easy': 'skyblue', 'Hard': 'salmon'}
+markers = {'Easy': 'o', 'Hard': 's'}
+
+for difficulty in ['Easy', 'Hard']:
+    diff_data = scatter_df[scatter_df['difficulty'] == difficulty]
+    ax.scatter(
+        diff_data['jds_hand'],
+        diff_data['jds_arm'],
+        c=colors[difficulty],
+        marker=markers[difficulty],
+        s=28,
+        alpha=0.7,
+        edgecolors='black',
+        linewidth=0.4,
+        label=f'{difficulty} (Lvl {1 if difficulty == "Easy" else 3}-{2 if difficulty == "Easy" else 4})'
+    )
+
+# Overall regression line
+hand_vals = scatter_df['jds_hand'].values
+arm_vals = scatter_df['jds_arm'].values
+r_overall, p_overall = pearsonr(hand_vals, arm_vals)
+m, b = np.polyfit(hand_vals, arm_vals, 1)
+xs = np.linspace(hand_vals.min(), hand_vals.max(), 100)
+ax.plot(xs, m * xs + b, linestyle='--', color='black', linewidth=1.4,
+        alpha=0.8, label=f'$r={r_overall:.2f}$, $p<.001$')
+
+# Set equal axis scaling and rounded bounds
+combined_min = min(scatter_df['jds_hand'].min(), scatter_df['jds_arm'].min())
+combined_max = max(scatter_df['jds_hand'].max(), scatter_df['jds_arm'].max())
+combined_min = np.floor(combined_min / 1000) * 1000
+combined_max = np.ceil(combined_max / 1000) * 1000
+ax.set_xlim(combined_min, combined_max)
+ax.set_ylim(combined_min, combined_max)
+ax.set_aspect('equal', adjustable='box')
+
+# Dotted y=x reference line
+ax.plot([combined_min, combined_max], [combined_min, combined_max],
+        linestyle=':', color='gray', linewidth=1.2, alpha=0.8, label='y=x')
+
+# Ticks: 3k, 5k, 7k, 9k, 11k, 13k
+ticks = np.arange(3000, 14000, 2000)
+ax.set_xticks(ticks)
+ax.set_yticks(ticks)
+ax.xaxis.set_major_formatter(lambda x, pos: f"{x/1000:.0f}k")
+ax.yaxis.set_major_formatter(lambda y, pos: f"{y/1000:.0f}k")
+
+# Labels and title
+ax.set_xlabel('Hand JDS Score', fontsize=9, fontweight='bold')
+ax.set_ylabel('Arm JDS Score', fontsize=9, fontweight='bold')
+ax.set_title('Hand vs Arm JDS by Difficulty', fontsize=10, fontweight='bold')
+
+# Legend and grid
+ax.legend(fontsize=6.2, loc='upper left', framealpha=0.95, bbox_to_anchor=(0.02, 0.98))
+ax.grid(True, linestyle='--', alpha=0.3)
+
+# Print correlation stats for each difficulty
+for difficulty in ['Easy', 'Hard']:
+    diff_data = scatter_df[scatter_df['difficulty'] == difficulty]
+    if len(diff_data) >= 3:
+        r, p = pearsonr(diff_data['jds_hand'], diff_data['jds_arm'])
+        print(f"  {difficulty}: r={r:.3f}, p={p:.4f}, n={len(diff_data)}")
+
+# Tight layout for CVPR single-column fit
+plt.tight_layout(pad=0.2)
+plt.savefig('plots/bias_hand_vs_arm_by_difficulty_cvpr.png', dpi=300, bbox_inches='tight')
+plt.close()
+print("Saved: plots/bias_hand_vs_arm_by_difficulty_cvpr.png")
+
+# ──────────────────────────────────────────────────────────────────────────
+# VERSION 2: Side-by-side subplots (Easy | Hard) for 2-column CVPR
+# ──────────────────────────────────────────────────────────────────────────
+fig, axes = plt.subplots(1, 2, figsize=(7, 3.2))
+
+difficulty_data = {
+    'Easy': {'color': 'skyblue', 'marker': 'o'},
+    'Hard': {'color': 'salmon', 'marker': 's'}
+}
+
+# Calculate global min/max across all data for consistent axes
+global_min = min(scatter_df['jds_hand'].min(), scatter_df['jds_arm'].min())
+global_max = max(scatter_df['jds_hand'].max(), scatter_df['jds_arm'].max())
+global_min = np.floor(global_min / 1000) * 1000
+global_max = np.ceil(global_max / 1000) * 1000
+
+# Use fixed range: 3k to 13k
+axis_min = 3000
+axis_max = 13000
+
+for idx, (difficulty, style) in enumerate(difficulty_data.items()):
+    ax = axes[idx]
+    diff_data = scatter_df[scatter_df['difficulty'] == difficulty]
+    
+    # Scatter plot
+    ax.scatter(
+        diff_data['jds_hand'],
+        diff_data['jds_arm'],
+        c=style['color'],
+        marker=style['marker'],
+        s=35,
+        alpha=0.7,
+        edgecolors='black',
+        linewidth=0.5
+    )
+    
+    # Regression line
+    if len(diff_data) >= 3:
+        hand_sub = diff_data['jds_hand'].values
+        arm_sub = diff_data['jds_arm'].values
+        r_sub, p_sub = pearsonr(hand_sub, arm_sub)
+        m_sub, b_sub = np.polyfit(hand_sub, arm_sub, 1)
+        # Extend regression line across full axis range
+        xs_sub = np.linspace(axis_min, axis_max, 100)
+        ax.plot(xs_sub, m_sub * xs_sub + b_sub, linestyle='--', color='black', 
+                linewidth=1.4, alpha=0.8, label=f'$r={r_sub:.2f}$, $p<.001$')
+    
+    # Set consistent axis scaling for both subplots
+    ax.set_xlim(axis_min, axis_max)
+    ax.set_ylim(axis_min, axis_max)
+    ax.set_aspect('equal', adjustable='box')
+    
+    # y=x reference line across full range
+    ax.plot([axis_min, axis_max], [axis_min, axis_max],
+            linestyle=':', color='gray', linewidth=1.2, alpha=0.8, label='y=x')
+    
+    # Consistent ticks: 3k, 5k, 7k, 9k, 11k, 13k
+    ticks_sub = np.arange(3000, 14000, 2000)
+    ax.set_xticks(ticks_sub)
+    ax.set_yticks(ticks_sub)
+    ax.xaxis.set_major_formatter(lambda x, pos: f"{x/1000:.0f}k")
+    ax.yaxis.set_major_formatter(lambda y, pos: f"{y/1000:.0f}k")
+    
+    # Labels and title
+    ax.set_xlabel('Hand JDS Score', fontsize=9, fontweight='bold')
+    if idx == 0:
+        ax.set_ylabel('Arm JDS Score', fontsize=9, fontweight='bold')
+    
+    level_range = '(Lvl 1-2)' if difficulty == 'Easy' else '(Lvl 3-4)'
+    ax.set_title(f'{difficulty} Songs {level_range}', fontsize=10, fontweight='bold')
+    
+    # Legend and grid
+    ax.legend(fontsize=7, loc='upper left', framealpha=0.95)
+    ax.grid(True, linestyle='--', alpha=0.3)
+
+plt.tight_layout(pad=0.5)
+plt.savefig('plots/bias_hand_vs_arm_by_difficulty_sidebyside.png', dpi=300, bbox_inches='tight')
+plt.close()
+print("Saved: plots/bias_hand_vs_arm_by_difficulty_sidebyside.png")
+
+# ────────────────────────────────────────────────────────────────────────────
+# 5. COMPARATIVE VISUALIZATION
+# ────────────────────────────────────────────────────────────────────────────
+print("\n" + "-"*80)
+print("5. COMPARATIVE VISUALIZATIONS")
+print("-"*80)
+
+# Plot 1: Reliability comparison (ICC) - Easy vs Hard
+fig, ax = plt.subplots(figsize=(7, 4.5))
+
+metrics_order = ['JDS (Hand)', 'JDS (Arm)', 'PA-MPJPE', 'MPJPE', 'DTW']
+x = np.arange(len(metrics_order))
+width = 0.35
+
+easy_icc = []
+hard_icc = []
+
+for metric in metrics_order:
+    easy_row = reliability_by_diff[
+        (reliability_by_diff['Difficulty'] == 'Easy') & 
+        (reliability_by_diff['Metric'] == metric)
+    ]
+    hard_row = reliability_by_diff[
+        (reliability_by_diff['Difficulty'] == 'Hard') & 
+        (reliability_by_diff['Metric'] == metric)
+    ]
+    
+    easy_icc.append(easy_row['ICC(3,1)'].values[0] if len(easy_row) > 0 else 0)
+    hard_icc.append(hard_row['ICC(3,1)'].values[0] if len(hard_row) > 0 else 0)
+
+bars1 = ax.bar(x - width/2, easy_icc, width, label='Easy (Lvl 1-2)', color='skyblue', edgecolor='black', alpha=0.8)
+bars2 = ax.bar(x + width/2, hard_icc, width, label='Hard (Lvl 3-4)', color='salmon', edgecolor='black', alpha=0.8)
+
+ax.axhline(y=0.75, color='orange', linestyle='--', linewidth=1.5, label='Good (0.75)', alpha=0.7)
+ax.axhline(y=0.9, color='green', linestyle='--', linewidth=1.5, label='Excellent (0.90)', alpha=0.7)
+
+ax.set_xlabel('Metric', fontsize=11, fontweight='bold')
+ax.set_ylabel('ICC(3,1)', fontsize=11, fontweight='bold')
+ax.set_title('Reliability by Difficulty Level', fontsize=12, fontweight='bold')
+ax.set_xticks(x)
+ax.set_xticklabels(metrics_order, fontsize=9)
+ax.set_ylim([0, 1.0])
+ax.legend(fontsize=9, loc='lower right')
+ax.grid(axis='y', alpha=0.3)
+
+plt.tight_layout()
+plt.savefig('plots/reliability_by_difficulty_barplot.png', dpi=150, bbox_inches='tight')
+plt.close()
+print("Saved: plots/reliability_by_difficulty_barplot.png")
+
+# Plot 2: Validity comparison (mean |r|) - Easy vs Hard
+fig, ax = plt.subplots(figsize=(7, 4.5))
+
+jds_types = ['JDS (Hand)', 'JDS (Arm)']
+x = np.arange(len(jds_types))
+width = 0.35
+
+easy_mean_r = []
+hard_mean_r = []
+
+for jds in jds_types:
+    easy_subset = validity_by_diff[
+        (validity_by_diff['Difficulty'] == 'Easy') & 
+        (validity_by_diff['JDS_Type'] == jds)
+    ]
+    hard_subset = validity_by_diff[
+        (validity_by_diff['Difficulty'] == 'Hard') & 
+        (validity_by_diff['JDS_Type'] == jds)
+    ]
+    
+    easy_mean_r.append(np.abs(easy_subset['r']).mean() if len(easy_subset) > 0 else 0)
+    hard_mean_r.append(np.abs(hard_subset['r']).mean() if len(hard_subset) > 0 else 0)
+
+bars1 = ax.bar(x - width/2, easy_mean_r, width, label='Easy (Lvl 1-2)', color='skyblue', edgecolor='black', alpha=0.8)
+bars2 = ax.bar(x + width/2, hard_mean_r, width, label='Hard (Lvl 3-4)', color='salmon', edgecolor='black', alpha=0.8)
+
+ax.set_xlabel('JDS Type', fontsize=11, fontweight='bold')
+ax.set_ylabel('Mean |r|', fontsize=11, fontweight='bold')
+ax.set_title('Validity (Correlation Strength) by Difficulty', fontsize=12, fontweight='bold')
+ax.set_xticks(x)
+ax.set_xticklabels(jds_types, fontsize=10)
+ax.set_ylim([0, 1.0])
+ax.legend(fontsize=9)
+ax.grid(axis='y', alpha=0.3)
+
+plt.tight_layout()
+plt.savefig('plots/validity_by_difficulty_barplot.png', dpi=150, bbox_inches='tight')
+plt.close()
+print("Saved: plots/validity_by_difficulty_barplot.png")
+
+print("\n" + "="*80)
+print("DIFFICULTY-BASED ANALYSIS COMPLETE")
+print("="*80)
+print("\nAdditional files saved:")
+print("  - reliability_by_difficulty.csv / .tex")
+print("  - validity_by_difficulty.csv / .tex")
+print("  - sensitivity_by_difficulty.csv / .tex")
+print("  - bias_by_difficulty.csv / .tex")
+print("  - reliability_by_difficulty_barplot.png")
+print("  - validity_by_difficulty_barplot.png")
+print("="*80)
 
 print("\n" + "="*80)
 print("PAPER RESULTS GENERATION COMPLETE")

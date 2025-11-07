@@ -29,7 +29,7 @@ for infile, (start, end) in cuts.items():
         "-ss", start, "-to", end,
         "-filter_complex",            # Apply video filters
         # Split into two streams: [base] (original), [tmp] (for processing)
-        # Crop rectangular region (x=280,y=0,w=130,h=130) from [tmp]
+        # Crop rectangular region from [tmp]
         # Apply boxblur=20 only to that region
         # Overlay blurred region back on [base] at the same position
         "[0:v]split=2[base][tmp];"

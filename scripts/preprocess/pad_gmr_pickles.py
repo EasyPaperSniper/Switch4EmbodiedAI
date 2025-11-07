@@ -15,7 +15,7 @@ start_pads = {
 pickle_dir = "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored"
 
 for song, pad in start_pads.items():
-    # output file name -> same base, but with _cut.mp4 suffix
+    # output file name -> same base, but with _padded.mp4 suffix
     infile_path = f"{pickle_dir}/{song}_cut/{song}_cut_poses.pkl"
     outfile_name = f"{song}_cut_poses_padded.pkl"
     outfile_path = f"{infile_path.rsplit('/', 1)[0]}/{outfile_name}"

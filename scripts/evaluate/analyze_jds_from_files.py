@@ -1220,7 +1220,7 @@ if len(all_concordance_results) > 0:
     
     latex_lines.append("\\bottomrule")
     latex_lines.append("\\end{tabular}}")
-    latex_lines.append("\\caption{Kendall's Coefficient of Concordance (W) showing agreement in player rankings across songs for different metrics. Four aggregation methods are shown for combining multiple trials (normal\\_1, normal\\_2, normal\\_3) per person-song pair. For JDS (Hand), higher scores are better; for motion metrics (MPJPE, PA-MPJPE, DTW), lower values are better. Values closer to 1 indicate perfect agreement in rankings. For each aggregation method, the best W value across metrics is shown in bold.}")
+    latex_lines.append("\\caption{Kendall's Coefficient of Concordance (W) showing agreement in player rankings across songs for different metrics. Four aggregation methods are shown for combining multiple trials (normal\_1, normal\_2, normal\_3) per person-song pair. Values closer to 1 indicate perfect agreement in rankings. For each aggregation method, the best W value across metrics is shown in bold.}")
     latex_lines.append("\\label{tab:concordance}")
     latex_lines.append("\\end{table}")
     

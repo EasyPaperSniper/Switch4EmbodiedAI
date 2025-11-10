@@ -8,12 +8,17 @@ Output Plots:
 - bias_hand_vs_arm_by_difficulty_sidebyside.png
 - validity_heatmap_hand_anonymous.png
 - validity_summary_barplot_by_difficulty.png
+- concordance_jds_hand_mean.png / median / max / last
+- concordance_mpjpe_mean.png / median / max / last
+- concordance_pa_mpjpe_mean.png / median / max / last
+- concordance_dtw_mean.png / median / max / last
 
 Output Tables:
 - validity_correlation_table.tex (tab:validity)
 - bias_by_difficulty.tex (tab:bias_difficulty)
 - sensitivity_by_difficulty.tex (tab:sensitivity_difficulty)
 - reliability_by_difficulty.tex (tab:reliability_jds)
+- concordance_kendalls_w.tex (tab:concordance)
 
 Usage:
     conda activate Switch4EAI
@@ -25,6 +30,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import pearsonr, ttest_rel
+from scipy.stats import kendalltau
 import pathlib
 from glob import glob
 import os
@@ -996,5 +1002,379 @@ plt.tight_layout(pad=0.5)
 plt.savefig('plots/bias_hand_vs_arm_by_difficulty_sidebyside.png', dpi=300, bbox_inches='tight')
 plt.close()
 print("   ✓ bias_hand_vs_arm_by_difficulty_sidebyside.png")
+
+
+# ============================================================================
+# 9. CONCORDANCE: KENDALL'S W (tab:concordance)
+# ============================================================================
+print("9. Generating Kendall's W concordance analysis...")
+
+def calculate_kendalls_w(rankings):
+    """
+    Calculate Kendall's W (coefficient of concordance) for a matrix of rankings.
+    
+    Args:
+        rankings: 2D array where rows are judges/songs and columns are subjects/persons
+    
+    Returns:
+        W: Kendall's coefficient of concordance
+        chi_sq: Chi-square statistic
+        p_value: p-value
+    """
+    rankings = np.array(rankings)
+    n = rankings.shape[1]  # number of subjects (persons)
+    m = rankings.shape[0]  # number of judges (songs)
+    
+    # Sum of ranks for each subject
+    R_j = np.sum(rankings, axis=0)
+    
+    # Mean of rank sums
+    R_bar = np.mean(R_j)
+    
+    # Sum of squared deviations
+    S = np.sum((R_j - R_bar) ** 2)
+    
+    # Kendall's W
+    W = (12 * S) / (m ** 2 * (n ** 3 - n))
+    
+    # Chi-square statistic
+    chi_sq = m * (n - 1) * W
+    
+    # Degrees of freedom
+    df = n - 1
+    
+    # P-value from chi-square distribution
+    from scipy.stats import chi2
+    p_value = 1 - chi2.cdf(chi_sq, df)
+    
+    return W, chi_sq, p_value
+
+
+def prepare_concordance_data(aggregation='max', metric='jds_hand'):
+    """
+    Prepare data for concordance analysis.
+    
+    Args:
+        aggregation: How to aggregate multiple trials ('mean', 'median', 'max', 'last')
+        metric: Which metric to analyze ('jds_hand', 'mpjpe', 'pa_mpjpe', 'dtw')
+    
+    Returns:
+        DataFrame with person rankings per song
+    """
+    df = merged_data_with_jds.copy()
+    df['run_type'] = df['condition'].str.split('_').str[0]
+    df = df[df['run_type'] == 'normal'].copy()
+    
+    # Filter to only include normal_1, normal_2, normal_3
+    df['trial_num'] = df['condition'].str.extract(r'normal_(\d+)')[0].astype(float)
+    df = df[df['trial_num'].isin([1, 2, 3])].copy()
+    
+    # Group by person and song, aggregate scores
+    grouped = df.groupby(['person', 'song'])
+    
+    if aggregation == 'mean':
+        agg_scores = grouped[metric].mean().reset_index()
+    elif aggregation == 'median':
+        agg_scores = grouped[metric].median().reset_index()
+    elif aggregation == 'max':
+        # For JDS: higher is better, for motion metrics: lower is better
+        if metric == 'jds_hand':
+            agg_scores = grouped[metric].max().reset_index()
+        else:
+            agg_scores = grouped[metric].min().reset_index()
+    elif aggregation == 'last':
+        # Get the last trial (highest trial_num)
+        agg_scores = df.sort_values('trial_num').groupby(['person', 'song']).tail(1)[['person', 'song', metric]].reset_index(drop=True)
+    else:
+        raise ValueError(f"Unknown aggregation method: {aggregation}")
+    
+    # Pivot to get songs as rows and persons as columns
+    pivot_scores = agg_scores.pivot(index='song', columns='person', values=metric)
+    
+    # Remove any rows or columns with all NaNs
+    pivot_scores = pivot_scores.dropna(how='all', axis=0).dropna(how='all', axis=1)
+    
+    # Convert scores to rankings
+    # For JDS: higher score = lower rank number (ascending=False)
+    # For motion metrics: lower value = lower rank number (ascending=True)
+    if metric == 'jds_hand':
+        rankings = pivot_scores.rank(axis=1, ascending=False, method='average')
+    else:
+        rankings = pivot_scores.rank(axis=1, ascending=True, method='average')
+    
+    return rankings, pivot_scores
+
+
+def calculate_concordance_all_methods(metric='jds_hand', metric_name='JDS (Hand)'):
+    """Calculate Kendall's W for all aggregation methods for a given metric."""
+    methods = ['mean', 'median', 'max', 'last']
+    results = []
+    
+    print(f"   Calculating concordance for {metric_name}...")
+    
+    for method in methods:
+        try:
+            rankings, scores = prepare_concordance_data(aggregation=method, metric=metric)
+            
+            # Remove any persons with missing data across songs
+            valid_persons = rankings.columns[rankings.notna().all()]
+            rankings_clean = rankings[valid_persons]
+            
+            if len(rankings_clean) < 2 or len(valid_persons) < 3:
+                print(f"      Warning: Not enough data for {method} aggregation")
+                continue
+            
+            W, chi_sq, p_value = calculate_kendalls_w(rankings_clean.values)
+            
+            results.append({
+                'Metric': metric_name,
+                'Method': method.capitalize(),
+                'Kendalls_W': W,
+                'Chi_Square': chi_sq,
+                'p_value': p_value,
+                'n_songs': len(rankings_clean),
+                'n_persons': len(valid_persons)
+            })
+            
+            print(f"      {method.capitalize()}: W={W:.3f}, p={p_value:.4f}, n_songs={len(rankings_clean)}, n_persons={len(valid_persons)}")
+            
+        except Exception as e:
+            print(f"      Error calculating concordance for {method}: {e}")
+            continue
+    
+    return pd.DataFrame(results)
+
+
+# Calculate concordance for all metrics
+metrics_to_analyze = [
+    ('jds_hand', 'JDS (Hand)'),
+    ('mpjpe', 'MPJPE'),
+    ('pa_mpjpe', 'PA-MPJPE'),
+    ('dtw', 'DTW')
+]
+
+all_concordance_results = []
+for metric, metric_name in metrics_to_analyze:
+    concordance_results = calculate_concordance_all_methods(metric=metric, metric_name=metric_name)
+    if len(concordance_results) > 0:
+        all_concordance_results.append(concordance_results)
+
+if len(all_concordance_results) > 0:
+    combined_concordance = pd.concat(all_concordance_results, ignore_index=True)
+    
+    # Generate LaTeX table
+    latex_lines = []
+    latex_lines.append("\\begin{table}[t]")
+    latex_lines.append("\\centering")
+    latex_lines.append("\\small")
+    latex_lines.append("\\resizebox{\\columnwidth}{!}{")
+    latex_lines.append("\\begin{tabular}{llccc}")
+    latex_lines.append("\\toprule")
+    latex_lines.append("\\textbf{Metric} & \\textbf{Aggregation} & \\textbf{Kendall's W} & \\textbf{p-value} & \\textbf{n} \\\\")
+    latex_lines.append("\\midrule")
+    
+    # For each aggregation method, find the best W across metrics
+    aggregation_best = {}
+    for method in ['Mean', 'Median', 'Max', 'Last']:
+        method_data = combined_concordance[combined_concordance['Method'] == method]
+        if len(method_data) > 0:
+            aggregation_best[method] = method_data['Kendalls_W'].max()
+    
+    # Group by metric
+    for metric_name in ['JDS (Hand)', 'MPJPE', 'PA-MPJPE', 'DTW']:
+        metric_data = combined_concordance[combined_concordance['Metric'] == metric_name]
+        if len(metric_data) == 0:
+            continue
+        
+        for idx, (_, row) in enumerate(metric_data.iterrows()):
+            method = row['Method']
+            W = row['Kendalls_W']
+            p = row['p_value']
+            n_persons = int(row['n_persons'])
+            
+            # Format p-value
+            if p < 0.001:
+                p_str = "$<$.001"
+            elif p < 0.01:
+                p_str = "$<$.01"
+            elif p < 0.05:
+                p_str = "$<$.05"
+            else:
+                p_str = f"{p:.3f}"
+            
+            # Add metric name only for first row of each metric
+            if idx == 0:
+                metric_display = metric_name
+            else:
+                metric_display = ""
+            
+            # Bold if this is the best W for this aggregation method across all metrics
+            if method in aggregation_best and W == aggregation_best[method]:
+                latex_lines.append(f"{metric_display} & {method} & \\textbf{{{W:.3f}}} & {p_str} & {n_persons} \\\\")
+            else:
+                latex_lines.append(f"{metric_display} & {method} & {W:.3f} & {p_str} & {n_persons} \\\\")
+        
+        # Add separator between metrics (except after last metric)
+        if metric_name != 'DTW':
+            latex_lines.append("\\cmidrule(lr){1-5}")
+    
+    latex_lines.append("\\bottomrule")
+    latex_lines.append("\\end{tabular}}")
+    latex_lines.append("\\caption{Kendall's Coefficient of Concordance (W) showing agreement in player rankings across songs for different metrics. Four aggregation methods are shown for combining multiple trials (normal\\_1, normal\\_2, normal\\_3) per person-song pair. For JDS (Hand), higher scores are better; for motion metrics (MPJPE, PA-MPJPE, DTW), lower values are better. Values closer to 1 indicate perfect agreement in rankings. For each aggregation method, the best W value across metrics is shown in bold.}")
+    latex_lines.append("\\label{tab:concordance}")
+    latex_lines.append("\\end{table}")
+    
+    with open('plots/concordance_kendalls_w.tex', 'w') as f:
+        f.write("\n".join(latex_lines))
+    
+    print("   ✓ concordance_kendalls_w.tex")
+else:
+    print("   ✗ No concordance results to save")
+
+
+# ============================================================================
+# 10. CONCORDANCE: VISUALIZATION (All aggregation methods for all metrics)
+# ============================================================================
+print("10. Generating concordance visualizations (all aggregation methods)...")
+
+def create_concordance_plot(metric, metric_name, aggregation, filename, invert_for_normalization=False):
+    """
+    Create concordance visualization for a given metric and aggregation method.
+    
+    Args:
+        metric: Metric column name
+        metric_name: Display name for the metric
+        aggregation: Aggregation method ('mean', 'median', 'max', 'last')
+        filename: Output filename
+        invert_for_normalization: If True, use (max - value) / max for normalization (for error metrics)
+    """
+    try:
+        rankings_agg, scores_agg = prepare_concordance_data(aggregation=aggregation, metric=metric)
+        
+        # Remove any persons with missing data
+        valid_persons = rankings_agg.columns[rankings_agg.notna().all()]
+        rankings_clean = rankings_agg[valid_persons]
+        scores_clean = scores_agg[valid_persons]
+        
+        if len(rankings_clean) >= 2 and len(valid_persons) >= 3:
+            # Create a heatmap of rankings
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+            
+            # Plot 1: Rankings heatmap
+            # Reorder songs by difficulty
+            song_display_order = [s for s in ['Old_Town_Road', 'Heart_Of_Glass', 'Unstoppable', 
+                                               'Padam_Padam', 'Pink_Venom'] if s in rankings_clean.index]
+            rankings_ordered = rankings_clean.loc[song_display_order]
+            
+            # Map to display names
+            rankings_ordered.index = [format_song_with_level(s) for s in rankings_ordered.index]
+            
+            sns.heatmap(
+                rankings_ordered,
+                annot=True,
+                fmt='.1f',
+                cmap='RdYlGn_r',
+                cbar_kws={'label': 'Rank (1=Best)', 'shrink': 0.8},
+                linewidths=0.5,
+                linecolor='gray',
+                ax=ax1,
+                annot_kws={'fontsize': 9}
+            )
+            
+            agg_display = aggregation.capitalize()
+            if metric == 'jds_hand':
+                rank_type = f"Best {agg_display} Score"
+            else:
+                rank_type = f"Best {agg_display} Value" if aggregation == 'max' else f"{agg_display} Value"
+            ax1.set_title(f'Player Rankings Across Songs ({rank_type})', 
+                         fontsize=12, fontweight='bold', pad=12)
+            ax1.set_xlabel('Person', fontsize=11, fontweight='bold')
+            ax1.set_ylabel('Song', fontsize=11, fontweight='bold')
+            ax1.tick_params(axis='x', rotation=45, labelsize=9)
+            ax1.tick_params(axis='y', rotation=0, labelsize=9)
+            
+            # Plot 2: Score consistency across songs (line plot)
+            scores_ordered = scores_clean.loc[song_display_order]
+            scores_ordered.index = [format_song_with_level(s) for s in song_display_order]
+            
+            # Normalize scores per song to show relative performance
+            # Use min-max normalization for all metrics: (value - min) / (max - min) * 100
+            # This gives 100 = best, 0 = worst for all metrics
+            min_vals = scores_ordered.min(axis=1)
+            max_vals = scores_ordered.max(axis=1)
+            
+            if invert_for_normalization:
+                # For error metrics: lower is better, so invert
+                # Best (minimum) gets 100, worst (maximum) gets 0
+                scores_normalized = ((max_vals.values.reshape(-1, 1) - scores_ordered.values) / 
+                                    (max_vals.values.reshape(-1, 1) - min_vals.values.reshape(-1, 1))) * 100
+                scores_normalized = pd.DataFrame(scores_normalized, 
+                                                index=scores_ordered.index, 
+                                                columns=scores_ordered.columns)
+            else:
+                # For JDS: higher is better
+                # Best (maximum) gets 100, worst (minimum) gets 0
+                scores_normalized = ((scores_ordered.values - min_vals.values.reshape(-1, 1)) / 
+                                    (max_vals.values.reshape(-1, 1) - min_vals.values.reshape(-1, 1))) * 100
+                scores_normalized = pd.DataFrame(scores_normalized, 
+                                                index=scores_ordered.index, 
+                                                columns=scores_ordered.columns)
+            
+            for person in scores_normalized.columns:
+                ax2.plot(range(len(scores_normalized)), 
+                        scores_normalized[person].values,
+                        marker='o', 
+                        label=person,
+                        linewidth=2,
+                        markersize=8,
+                        alpha=0.7)
+            
+            ax2.set_xticks(range(len(scores_normalized)))
+            ax2.set_xticklabels(scores_normalized.index, rotation=45, ha='right', fontsize=9)
+            
+            # Use consistent label for all metrics
+            ylabel = 'Normalized Performance (100 = Best, 0 = Worst)'
+            ax2.set_ylabel(ylabel, fontsize=11, fontweight='bold')
+            ax2.set_xlabel('Song', fontsize=11, fontweight='bold')
+            ax2.set_title(f'{metric_name} Consistency Across Songs', fontsize=12, fontweight='bold', pad=12)
+            ax2.legend(loc='best', fontsize=8, ncol=2)
+            ax2.grid(True, alpha=0.3, linestyle='--')
+            ax2.set_ylim(0, 105)
+            
+            # Add Kendall's W annotation
+            W, chi_sq, p_value = calculate_kendalls_w(rankings_clean.values)
+            if p_value < 0.001:
+                p_str = "p < .001"
+            else:
+                p_str = f"p = {p_value:.3f}"
+            
+            agg_label = aggregation.capitalize()
+            fig.suptitle(f"Player Ranking Concordance - {metric_name} ({agg_label}) (Kendall's W = {W:.3f}, {p_str})",
+                        fontsize=13, fontweight='bold', y=1.02)
+            
+            plt.tight_layout()
+            plt.savefig(f'plots/{filename}', dpi=150, bbox_inches='tight')
+            plt.close()
+            print(f"   ✓ {filename}")
+        else:
+            print(f"   ✗ Not enough data for {metric_name} ({aggregation}) concordance visualization")
+            
+    except Exception as e:
+        print(f"   ✗ Error generating {metric_name} ({aggregation}) concordance visualization: {e}")
+
+
+# Generate plots for all metrics and all aggregation methods
+aggregation_methods = ['mean', 'median', 'max', 'last']
+metric_configs = [
+    ('jds_hand', 'JDS (Hand)', 'concordance_jds_hand', False),
+    ('mpjpe', 'MPJPE', 'concordance_mpjpe', True),
+    ('pa_mpjpe', 'PA-MPJPE', 'concordance_pa_mpjpe', True),
+    ('dtw', 'DTW', 'concordance_dtw', True)
+]
+
+for metric, metric_name, base_filename, invert in metric_configs:
+    for aggregation in aggregation_methods:
+        filename = f"{base_filename}_{aggregation}.png"
+        create_concordance_plot(metric, metric_name, aggregation, filename, invert)
 
 print("\nDone! All plots and tables saved to plots/")

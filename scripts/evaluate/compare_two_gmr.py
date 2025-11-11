@@ -56,27 +56,6 @@ from general_motion_retargeting.kinematics_model import KinematicsModel
 
 
 recorded_gmr_paths = [
-    # Unstoppable
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_offline-1_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_offline-2_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_offline-3_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_online-1_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_online-2_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_online-3_gmr.pkl",
-    # Pink_Venom
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_offline-1_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_offline-2_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_offline-3_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_online-1_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_online-2_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_online-3_gmr.pkl",
-    # Padam_Padam
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_offline-1_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_offline-2_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_offline-3_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_online-1_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_online-2_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_online-3_gmr.pkl",
     # Old_Town_Road
     "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_offline-1_gmr.pkl",
     "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_offline-2_gmr.pkl",
@@ -91,30 +70,69 @@ recorded_gmr_paths = [
     "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_online-1_gmr.pkl",
     "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_online-2_gmr.pkl",
     "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_online-3_gmr.pkl",
+    # Unstoppable
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_offline-1_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_offline-2_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_offline-3_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_online-1_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_online-2_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_online-3_gmr.pkl",
+    # Padam_Padam
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_offline-1_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_offline-2_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_offline-3_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_online-1_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_online-2_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_online-3_gmr.pkl",
+    # Pink_Venom
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_offline-1_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_offline-2_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_offline-3_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_online-1_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_online-2_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_online-3_gmr.pkl",
+]
+
+# Rename below to recorded_gmr_paths when you want to obtain padded numbers
+NOT_USED = [
+    # Old_Town_Road
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_offline-1_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_offline-2_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_offline-3_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_online-1_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_online-2_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_online-3_gmr-padded.pkl",
+    # Heart_Of_Glass
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_offline-1_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_offline-2_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_offline-3_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_online-1_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_online-2_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_online-3_gmr-padded.pkl",
+    # Unstoppable
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_offline-1_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_offline-2_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_offline-3_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_online-1_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_online-2_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_online-3_gmr-padded.pkl",
+    # Padam_Padam
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_offline-1_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_offline-2_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_offline-3_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_online-1_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_online-2_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_online-3_gmr-padded.pkl",
+    # Pink_Venom
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_offline-1_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_offline-2_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_offline-3_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_online-1_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_online-2_gmr-padded.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_online-3_gmr-padded.pkl",
 ]
 
 reference_gmr_paths = [
-    # Unstoppable
-    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Unstoppable_cut/Unstoppable_cut_poses.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Unstoppable_cut/Unstoppable_cut_poses.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Unstoppable_cut/Unstoppable_cut_poses.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Unstoppable/Unstoppable_Online_Reference_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Unstoppable/Unstoppable_Online_Reference_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Unstoppable/Unstoppable_Online_Reference_gmr.pkl",
-    # Pink_Venom
-    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Pink_Venom_cut/Pink_Venom_cut_poses.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Pink_Venom_cut/Pink_Venom_cut_poses.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Pink_Venom_cut/Pink_Venom_cut_poses.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Pink_Venom/Pink_Venom_Online_Reference_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Pink_Venom/Pink_Venom_Online_Reference_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Pink_Venom/Pink_Venom_Online_Reference_gmr.pkl",
-    # Padam_Padam
-    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Padam_Padam_cut/Padam_Padam_cut_poses.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Padam_Padam_cut/Padam_Padam_cut_poses.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Padam_Padam_cut/Padam_Padam_cut_poses.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Padam_Padam/Padam_Padam_Online_Reference_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Padam_Padam/Padam_Padam_Online_Reference_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Padam_Padam/Padam_Padam_Online_Reference_gmr.pkl",
     # Old_Town_Road
     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Old_Town_Road_cut/Old_Town_Road_cut_poses.pkl",
     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Old_Town_Road_cut/Old_Town_Road_cut_poses.pkl",
@@ -129,6 +147,27 @@ reference_gmr_paths = [
     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Heart_Of_Glass/Heart_Of_Glass_Online_Reference_gmr.pkl",
     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Heart_Of_Glass/Heart_Of_Glass_Online_Reference_gmr.pkl",
     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Heart_Of_Glass/Heart_Of_Glass_Online_Reference_gmr.pkl",
+    # Unstoppable
+    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Unstoppable_cut/Unstoppable_cut_poses.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Unstoppable_cut/Unstoppable_cut_poses.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Unstoppable_cut/Unstoppable_cut_poses.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Unstoppable/Unstoppable_Online_Reference_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Unstoppable/Unstoppable_Online_Reference_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Unstoppable/Unstoppable_Online_Reference_gmr.pkl",
+    # Padam_Padam
+    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Padam_Padam_cut/Padam_Padam_cut_poses.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Padam_Padam_cut/Padam_Padam_cut_poses.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Padam_Padam_cut/Padam_Padam_cut_poses.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Padam_Padam/Padam_Padam_Online_Reference_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Padam_Padam/Padam_Padam_Online_Reference_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Padam_Padam/Padam_Padam_Online_Reference_gmr.pkl",
+    # Pink_Venom
+    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Pink_Venom_cut/Pink_Venom_cut_poses.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Pink_Venom_cut/Pink_Venom_cut_poses.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Pink_Venom_cut/Pink_Venom_cut_poses.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Pink_Venom/Pink_Venom_Online_Reference_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Pink_Venom/Pink_Venom_Online_Reference_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Pink_Venom/Pink_Venom_Online_Reference_gmr.pkl",
 ]
 
 # Robot model XML path
@@ -501,6 +540,8 @@ def generate_summary(recorded_paths):
             song = parts[0]
             mode = "offline" if "offline" in parts[1] else "online"
             results_by_song[song][mode].append(data)
+        else:
+            raise ValueError(f"Unexpected recorded path format: {recorded_path}")
     
     # Generate summary text
     summary_lines = []
@@ -544,10 +585,10 @@ def generate_summary(recorded_paths):
     summary_lines.append("")
     if all_offline:
         mpjpes = [t["mpjpe_mm"] for t in all_offline if t["n_frames"] >= 300]
-        summary_lines.append(f"Overall Offline (n={len(all_offline)}): MPJPE = {sum(mpjpes)/len(mpjpes):.1f} mm")
+        summary_lines.append(f"Overall Offline (n={len(mpjpes)}): MPJPE = {sum(mpjpes)/len(mpjpes):.1f} mm")
     if all_online:
         mpjpes = [t["mpjpe_mm"] for t in all_online if t["n_frames"] >= 300]
-        summary_lines.append(f"Overall Online (n={len(all_online)}): MPJPE = {sum(mpjpes)/len(mpjpes):.1f} mm")
+        summary_lines.append(f"Overall Online (n={len(mpjpes)}): MPJPE = {sum(mpjpes)/len(mpjpes):.1f} mm")
     
     summary_lines.append("=" * 80)
     

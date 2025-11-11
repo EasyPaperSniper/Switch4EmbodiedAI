@@ -4,77 +4,37 @@ import numpy as np
 
 recording_paths = [
     # Old_Town_Road
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_offline-1.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_offline-2.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_offline-3.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_online-1.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_online-2.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_online-3.txt",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_offline.txt",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_online.txt",
     # Heart_Of_Glass
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_offline-1.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_offline-2.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_offline-3.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_online-1.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_online-2.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_online-3.txt",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_offline.txt",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_online.txt",
     # Unstoppable
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_offline-1.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_offline-2.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_offline-3.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_online-1.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_online-2.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_online-3.txt",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Unstoppable/Unstoppable_offline.txt",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Unstoppable/Unstoppable_online.txt",
     # Padam_Padam
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_offline-1.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_offline-2.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_offline-3.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_online-1.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_online-2.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_online-3.txt",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_offline.txt",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_online.txt",
     # Pink_Venom
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_offline-1.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_offline-2.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_offline-3.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_online-1.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_online-2.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_online-3.txt",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_offline.txt",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_online.txt",
 ]
 output_gmr_paths = [
     # Old_Town_Road
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_offline-1_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_offline-2_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_offline-3_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_online-1_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_online-2_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_online-3_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_offline_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_online_gmr.pkl",
     # Heart_Of_Glass
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_offline-1_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_offline-2_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_offline-3_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_online-1_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_online-2_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_online-3_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_offline_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_online_gmr.pkl",
     # Unstoppable
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_offline-1_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_offline-2_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_offline-3_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_online-1_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_online-2_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_online-3_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Unstoppable/Unstoppable_offline_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Unstoppable/Unstoppable_online_gmr.pkl",
     # Padam_Padam
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_offline-1_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_offline-2_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_offline-3_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_online-1_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_online-2_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_online-3_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_offline_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_online_gmr.pkl",
     # Pink_Venom
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_offline-1_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_offline-2_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_offline-3_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_online-1_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_online-2_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_online-3_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_offline_gmr.pkl",
+    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_online_gmr.pkl",
 ]
 
 # recording_paths = [
@@ -93,13 +53,13 @@ output_gmr_paths = [
 # ]
 
 pad_seconds = None
-# pad_seconds = [
-#     161, 161, 161, 161, 161, 161,
-#     216, 216, 216, 216, 216, 216,
-#     204, 204, 204, 204, 204, 204,
-#     149, 149, 149, 149, 149, 149,
-#     178, 178, 178, 178, 178, 178,
-# ]
+pad_seconds = [
+    161, 161,# 161, 161, 161, 161,
+    216, 216,# 216, 216, 216, 216,
+    204, 204,# 204, 204, 204, 204,
+    149, 149,# 149, 149, 149, 149,
+    178, 178,# 178, 178, 178, 178,
+]
 
 recordings = [
     np.loadtxt(recording_path, delimiter=',') for recording_path in recording_paths
@@ -130,9 +90,9 @@ import numpy as np
 def trim_idle_dofs(
     dof_pos,
     vel_threshold=0.03,
-    gap_tolerance=250,
+    gap_tolerance=100,
     padding=30,
-    plot_idle=False
+    plot_idle=True
 ):
     vel = np.max(np.abs(np.diff(dof_pos, axis=0)), axis=1)
     vel = np.concatenate([[0], vel])

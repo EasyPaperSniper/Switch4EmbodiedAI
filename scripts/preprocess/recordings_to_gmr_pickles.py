@@ -91,6 +91,7 @@ output_gmr_paths = [
 #     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Old_Town_Road/Old_Town_Road_Online_Reference_gmr.pkl",
 #     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Heart_Of_Glass/Heart_Of_Glass_Online_Reference_gmr.pkl",
 # ]
+
 recordings = [
     np.loadtxt(recording_path, delimiter=',') for recording_path in recording_paths
 ]
@@ -130,7 +131,8 @@ def trim_idle_dofs(
     active = vel > vel_threshold
     T = len(active)
 
-    # --- Find raw segments ---segments = []
+    # --- Find raw segments ---
+    segments = []
     cur_start = None
     for i in range(T):
         if active[i] and cur_start is None:

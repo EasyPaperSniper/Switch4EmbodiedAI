@@ -2,17 +2,6 @@ from tqdm import tqdm
 import pickle
 import numpy as np
 
-# Dictionary mapping filename -> frames to pad at the beginning (repeating the first frame)
-start_pads = {
-    # "Baby_Shark": 434,
-    # "Heart_Of_Glass": 238,
-    # "Old_Town_Road": 123,
-    # "Padam_Padam": 735,
-    # "Soy_Yo": 470,
-    # "Unstoppable": 365,
-    "Pink_Venom": 450,
-}
-
 recording_paths = [
     # Unstoppable
     "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Unstoppable/Unstoppable_offline-1.txt",
@@ -87,6 +76,21 @@ output_gmr_paths = [
     "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_online-2_gmr.pkl",
     "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_online-3_gmr.pkl",
 ]
+
+# recording_paths = [
+#     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Unstoppable/Unstoppable_Online_Reference.txt",
+#     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Pink_Venom/Pink_Venom_Online_Reference.txt",
+#     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Padam_Padam/Padam_Padam_Online_Reference.txt",
+#     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Old_Town_Road/Old_Town_Road_Online_Reference.txt",
+#     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Heart_Of_Glass/Heart_Of_Glass_Online_Reference.txt",
+# ]
+# output_gmr_paths = [
+#     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Unstoppable/Unstoppable_Online_Reference_gmr.pkl",
+#     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Pink_Venom/Pink_Venom_Online_Reference_gmr.pkl",
+#     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Padam_Padam/Padam_Padam_Online_Reference_gmr.pkl",
+#     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Old_Town_Road/Old_Town_Road_Online_Reference_gmr.pkl",
+#     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Heart_Of_Glass/Heart_Of_Glass_Online_Reference_gmr.pkl",
+# ]
 recordings = [
     np.loadtxt(recording_path, delimiter=',') for recording_path in recording_paths
 ]
@@ -114,21 +118,19 @@ def dof_pos_rec_to_gmr(dof_pos_rec):
 import numpy as np
 
 def trim_idle_dofs(
-    dof_recording,
+    dof_pos,
     vel_threshold=0.03,
-    min_active_len=300,
     gap_tolerance=250,
-    plot_idle=True
+    padding=30,
+    plot_idle=False
 ):
-    vel = np.max(np.abs(np.diff(dof_recording, axis=0)), axis=1)
+    vel = np.max(np.abs(np.diff(dof_pos, axis=0)), axis=1)
     vel = np.concatenate([[0], vel])
-    vel[:200] = 0.0  # ignore setup jitter
 
     active = vel > vel_threshold
     T = len(active)
 
-    # --- Find raw segments ---
-    segments = []
+    # --- Find raw segments ---segments = []
     cur_start = None
     for i in range(T):
         if active[i] and cur_start is None:
@@ -141,7 +143,7 @@ def trim_idle_dofs(
     
     if len(segments) == 0:
         print("No active segments found; returning full recording.")
-        return dof_recording
+        return dof_pos
 
     # --- Merge segments separated by small gaps ---
     merged = []
@@ -161,10 +163,10 @@ def trim_idle_dofs(
     start, end = merged[best_idx]
 
     # Expand slightly for smoother playback
-    start = max(0, start - 50)
-    end = min(T, end + 50)
+    start = max(0, start - padding)
+    end = min(T, end + padding)
 
-    trimmed = dof_recording[start:end]
+    trimmed = dof_pos[start:end]
 
     if plot_idle:
         import matplotlib.pyplot as plt
@@ -180,22 +182,58 @@ def trim_idle_dofs(
     print(f"Trimmed: start={start}, end={end}, frames={end-start}")
     return trimmed
 
+def resample_fps(arr, old_fps=50, new_fps=30):
+    """
+    Resample a time-series array from old_fps -> new_fps using linear interpolation.
+    arr: (T, D)
+    returns: (T_new, D)
+    """
+    T = arr.shape[0]
+    duration = T / old_fps  # seconds
+
+    t_old = np.linspace(0, duration, T, endpoint=False)
+    T_new = int(duration * new_fps)
+    t_new = np.linspace(0, duration, T_new, endpoint=False)
+
+    # Interpolate each dimension independently
+    arr_new = np.zeros((T_new, arr.shape[1]))
+    for d in range(arr.shape[1]):
+        arr_new[:, d] = np.interp(t_new, t_old, arr[:, d])
+
+    return arr_new
+
+def resample_fps_from_timestamps(arr, timestamps, new_fps=30):
+    # from timestamps, resample to new fps
+    T = arr.shape[0]
+    duration = timestamps[-1] - timestamps[0] # seconds
+    t_old = timestamps
+    T_new = int(duration * new_fps)
+    t_new = np.linspace(timestamps[0], timestamps[-1], T_new, endpoint=False)
+    arr_new = np.zeros((T_new, arr.shape[1]))
+    for d in range(arr.shape[1]):
+        arr_new[:, d] = np.interp(t_new, t_old, arr[:, d])
+    return arr_new
 
 for i, recording in tqdm(enumerate(recordings)):
-    dof_recording = recording[:, 1:24]  # Extract DOF positions from columns 1 to 24
-    dof_recording = trim_idle_dofs(dof_recording)
-    n_frames = dof_recording.shape[0]
+    dof_pos = recording[:, 1:24]  # Extract DOF positions from columns 1 to 24
     
-    gmr_dof_pos = dof_pos_rec_to_gmr(dof_recording)
+    gmr_dof_pos = dof_pos_rec_to_gmr(dof_pos)
+    NEW_FPS = 30
+    gmr_dof_pos = resample_fps_from_timestamps(gmr_dof_pos, recording[:, 0], new_fps=NEW_FPS)
+    # OLD_FPS = 50
+    # gmr_dof_pos = resample_fps(gmr_dof_pos, old_fps=OLD_FPS, new_fps=NEW_FPS)
+
+    gmr_dof_pos = trim_idle_dofs(gmr_dof_pos, padding=NEW_FPS)
+    n_frames = gmr_dof_pos.shape[0]
+
     gmr_root_pos = np.zeros((n_frames, 3))  # Set root position to zeros
-    gmr_root_pos[:, 2] = 0.9  # Set a constant height for the root (e.g., z=0.9)
-    gmr_rot_wxyz = recording[:, 24:28]  # Columns 4 to 7 for root rotation (wxyz)
-    gmr_rot_wxyz = np.zeros_like(gmr_rot_wxyz)
+    gmr_root_pos[:, 2] = 1.0  # Set a constant height for the root (e.g., z=1.0)
+    gmr_rot_wxyz = np.zeros((n_frames, 4))
     gmr_rot_wxyz[:, 0] = 1.0  # Set w component to 1 (no rotation)
     gmr_rot_xyzw = gmr_rot_wxyz[:, [1, 2, 3, 0]]  # Convert wxyz to xyzw if needed
-    n_frames = gmr_dof_pos.shape[0]
+
     pose_data = {
-        'fps': 50,
+        'fps': 30,
         'root_pos': gmr_root_pos,  # Columns 1 to 4 for root position
         'root_rot': gmr_rot_xyzw,  # Columns 4 to 7 for root rotation
         'dof_pos': gmr_dof_pos,
@@ -204,7 +242,7 @@ for i, recording in tqdm(enumerate(recordings)):
     }
     
     print(f"Saving GMR pickle to: {output_gmr_paths[i]}"
-          f" with {n_frames} frames. corresponding to {n_frames/50:.2f} seconds. ")
+          f" with {n_frames} frames. corresponding to {n_frames/NEW_FPS:.2f} seconds. ")
     outfile_path = output_gmr_paths[i]
     with open(outfile_path, "wb") as f:
         pickle.dump(pose_data, f)

@@ -162,23 +162,29 @@ def align_to_zero(data):
     root_rot = data['root_rot'].copy()
     dof_pos = data['dof_pos'].copy()
     
-    # Subtract first frame position
-    root_pos_offset = root_pos[0].copy()
-    root_pos -= root_pos_offset
+    # # Subtract first frame position
+    # root_pos_offset = root_pos[0].copy()
+    # root_pos -= root_pos_offset
     
-    # Apply inverse of first frame rotation
-    root_rot_first = R.from_quat(root_rot[0])
-    root_rot_first_inv = root_rot_first.inv()
+    # # Apply inverse of first frame rotation
+    # root_rot_first = R.from_quat(root_rot[0])
+    # root_rot_first_inv = root_rot_first.inv()
     
-    for i in range(len(root_rot)):
-        rot = R.from_quat(root_rot[i])
-        rot_aligned = root_rot_first_inv * rot
-        root_rot[i] = rot_aligned.as_quat()
+    # for i in range(len(root_rot)):
+    #     rot = R.from_quat(root_rot[i])
+    #     rot_aligned = root_rot_first_inv * rot
+    #     root_rot[i] = rot_aligned.as_quat()
     
+    n_frames = dof_pos.shape[0]
+    root_pos = np.zeros((n_frames, 3))  # Set root position to zeros
+    root_pos[:, 2] = 1.0  # Set a constant height for the root (e.g., z=1.0)
+    root_rot_wxyz = np.zeros((n_frames, 4))
+    root_rot_wxyz[:, 0] = 1.0  # Set w component to 1 (no rotation)
+    root_rot_xyzw = root_rot_wxyz[:, [1, 2, 3, 0]]  # Convert wxyz to xyzw if needed
     return {
         'fps': data['fps'],
         'root_pos': root_pos,
-        'root_rot': root_rot,
+        'root_rot': root_rot_xyzw,
         'dof_pos': dof_pos,
     }
 

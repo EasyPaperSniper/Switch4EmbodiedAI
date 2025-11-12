@@ -54,9 +54,19 @@ sys.modules['loop_rate_limiters'] = MockModule('loop_rate_limiters')
 
 from general_motion_retargeting.kinematics_model import KinematicsModel
 
+# Add parent directory to path
+import sys
+import pathlib
+HERE = pathlib.Path(__file__).parent
+sys.path.append(str(HERE / ".." / ".."))
 
-# Human recording GMR files
-from scripts.evaluate.data.human_gmrs import recorded_gmr_paths
+# Recording GMR files
+from scripts.evaluate.data.gmt_sim_paths import gmr_paths, gmr_padded_paths
+# from scripts.evaluate.data.twist_sim_paths import gmr_paths, gmr_padded_paths
+# from scripts.evaluate.data.any2track_sim_paths import gmr_paths, gmr_padded_paths
+# from scripts.evaluate.data.gmt_paths import gmr_paths, gmr_padded_paths
+# from scripts.evaluate.data.twist_paths import gmr_paths, gmr_padded_paths
+# from scripts.evaluate.data.any2track_paths import gmr_paths, gmr_padded_paths
 
 # Reference GMR 
 REFERENCE_GMR_MAP_OFFLINE = {
@@ -73,20 +83,33 @@ REFERENCE_GMR_MAP_ONLINE = {
     "Padam_Padam": "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Padam_Padam/Padam_Padam_Online_Reference.pkl",
     "Pink_Venom": "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Pink_Venom/Pink_Venom_Online_Reference.pkl",
 }
-REFERENCE_GMR_MAP = REFERENCE_GMR_MAP_OFFLINE
 
 
 # Helper function to get song name from path
 def get_song_name(path):
     """Extract song name from GMR file path."""
     filename = Path(path).stem.replace("_poses", "")
-    for song in REFERENCE_GMR_MAP.keys():
+    for song in REFERENCE_GMR_MAP_OFFLINE.keys():
         if filename.startswith(song):
             return song
     return None
 
+def get_is_online(path):
+    """Determine if the recording is online or offline based on filename."""
+    filename = Path(path).stem
+    if "online" in filename.lower():
+        return True
+    return False
+
+def get_reference_map(path):
+    """Get appropriate reference map based on online/offline status."""
+    if get_is_online(path):
+        return REFERENCE_GMR_MAP_ONLINE
+    else:
+        return REFERENCE_GMR_MAP_OFFLINE
+
 # Generate corresponding reference paths
-reference_gmr_paths = [REFERENCE_GMR_MAP[get_song_name(p)] for p in recorded_gmr_paths]
+reference_gmr_paths = [get_reference_map(p)[get_song_name(p)] for p in gmr_paths]
 
 # Robot model XML path
 ROBOT_XML = REPO_ROOT / "third_party" / "GMR" / "assets" / "unitree_g1" / "g1_mocap_29dof.xml"
@@ -102,32 +125,6 @@ def load_gmr_data(gmr_path):
         data = pickle.load(f)
     return data
 
-
-def trim_to_same_length(recorded_data, reference_data):
-    """Trim both trajectories to the same length.
-    
-    If recorded is longer, trim it. If shorter, trim reference.
-    """
-    n_rec = recorded_data['dof_pos'].shape[0]
-    n_ref = reference_data['dof_pos'].shape[0]
-    
-    min_len = min(n_rec, n_ref)
-    
-    recorded_trimmed = {
-        'fps': recorded_data['fps'],
-        'root_pos': recorded_data['root_pos'][:min_len],
-        'root_rot': recorded_data['root_rot'][:min_len],
-        'dof_pos': recorded_data['dof_pos'][:min_len],
-    }
-    
-    reference_trimmed = {
-        'fps': reference_data['fps'],
-        'root_pos': reference_data['root_pos'][:min_len],
-        'root_rot': reference_data['root_rot'][:min_len],
-        'dof_pos': reference_data['dof_pos'][:min_len],
-    }
-    
-    return recorded_trimmed, reference_trimmed
 
 
 def align_to_zero(data):
@@ -359,7 +356,7 @@ def save_results(recorded_path, results):
         json.dump(results_serializable, f, indent=2)
 
 
-for i, recorded_gmr_path in enumerate(tqdm(recorded_gmr_paths, desc="Processing recordings")):
+for i, recorded_gmr_path in enumerate(tqdm(gmr_paths, desc="Processing recordings")):
     reference_gmr_path = reference_gmr_paths[i]
     
     try:
@@ -371,53 +368,65 @@ for i, recorded_gmr_path in enumerate(tqdm(recorded_gmr_paths, desc="Processing 
         recorded_data = align_to_zero(recorded_data)
         reference_data = align_to_zero(reference_data)
         
-        # Compute forward kinematics (now both have same length)
-        if not ROBOT_XML.exists():
-            tqdm.write(f"ERROR: Robot XML not found at {ROBOT_XML}")
-            continue
-        
+        # Compute forward kinematics
         recorded_body_pos, body_names = compute_forward_kinematics(ROBOT_XML, recorded_data)
         reference_body_pos, _ = compute_forward_kinematics(ROBOT_XML, reference_data)
 
         
         # Find optimal time alignment on MPJPE
-        recorded_body_pos, reference_body_pos, recorded_aligned_indices, reference_aligned_indices, mpjpe = find_optimal_time_alignment_mpjpe(
-            recorded_body_pos, 
+        recorded_body_pos_aligned, reference_body_pos_aligned, recorded_aligned_indices, reference_aligned_indices, _ = find_optimal_time_alignment_mpjpe(
+            recorded_body_pos,
             reference_body_pos
         )
         
-        n_frames = recorded_body_pos.shape[0]
+        n_frames = recorded_body_pos_aligned.shape[0]
 
 
         # Compute metrics
-        mpjpe = compute_mpjpe(recorded_body_pos, reference_body_pos)
+        mpjpe = compute_mpjpe(recorded_body_pos_aligned, reference_body_pos_aligned)
         recorded_smoothness, recorded_velocity_discontinuity, recorded_mean_velocity, recorded_mean_acceleration = compute_joint_smoothness(
             recorded_data['dof_pos'][recorded_aligned_indices], recorded_data['fps']
         )
         reference_smoothness, reference_velocity_discontinuity, reference_mean_velocity, reference_mean_acceleration = compute_joint_smoothness(
             reference_data['dof_pos'][reference_aligned_indices], reference_data['fps']
         )
+
+        if True:
+            recorded_padded_gmr_path = gmr_padded_paths[i]
+            recorded_padded_data = load_gmr_data(recorded_padded_gmr_path)
+            recorded_padded_data = align_to_zero(recorded_padded_data)
+            recorded_padded_body_pos, _ = compute_forward_kinematics(ROBOT_XML, recorded_padded_data)
+            # Find optimal time alignment on MPJPE
+            recorded_padded_body_pos_aligned, reference_padded_body_pos_aligned, recorded_aligned_indices, reference_aligned_indices, _ = find_optimal_time_alignment_mpjpe(
+                recorded_padded_body_pos,
+                reference_body_pos
+            )
+
+            n_frames_padded = recorded_padded_body_pos_aligned.shape[0]
+            # Compute metrics
+            mpjpe_padded = compute_mpjpe(recorded_padded_body_pos_aligned, reference_padded_body_pos_aligned)
+
         
         # Save results
         results = {
             'recorded_path': recorded_gmr_path,
+            'recorded_padded_path': recorded_padded_gmr_path,
             'reference_path': reference_gmr_path,
             'n_frames': n_frames,
             'fps': recorded_data['fps'],
-            'mpjpe_m': float(mpjpe),
             'mpjpe_mm': float(mpjpe * 1000),
-            'body_names': body_names,
+            'mpjpe_padded_mm': float(mpjpe_padded * 1000),
+            # 'body_names': body_names,
             'recorded_smoothness': float(recorded_smoothness),
-            'reference_smoothness': float(reference_smoothness),
-            'smoothness_ratio': float(recorded_smoothness / reference_smoothness),
-            'recorded_velocity_discontinuity': float(recorded_velocity_discontinuity),
-            'reference_velocity_discontinuity': float(reference_velocity_discontinuity),
-            'recorded_mean_velocity': float(recorded_mean_velocity),
-            'reference_mean_velocity': float(reference_mean_velocity),
+            # 'reference_smoothness': float(reference_smoothness),
+            # 'smoothness_ratio': float(recorded_smoothness / reference_smoothness),
+            # 'recorded_velocity_discontinuity': float(recorded_velocity_discontinuity),
+            # 'reference_velocity_discontinuity': float(reference_velocity_discontinuity),
+            # 'recorded_mean_velocity': float(recorded_mean_velocity),
+            # 'reference_mean_velocity': float(reference_mean_velocity),
             'recorded_mean_acceleration': float(recorded_mean_acceleration),
-            'reference_mean_acceleration': float(reference_mean_acceleration),
+            # 'reference_mean_acceleration': float(reference_mean_acceleration),
         }
-        
         save_results(recorded_gmr_path, results)
         
         # Print summary
@@ -425,10 +434,12 @@ for i, recorded_gmr_path in enumerate(tqdm(recorded_gmr_paths, desc="Processing 
             f"{Path(recorded_gmr_path).stem} | "
             f"Frames: {n_frames} | "
             f"MPJPE: {mpjpe*1000:.1f} mm | "
+            f"Frames_padded: {n_frames_padded} | "
+            f"MPJPE_padded: {mpjpe_padded*1000:.1f} mm | "
             f"Smooth: {recorded_smoothness:.2f} rad/s³ | "
-            f"VelDisc: {recorded_velocity_discontinuity:.2f} rad/s | "
+            # f"VelDisc: {recorded_velocity_discontinuity:.2f} rad/s | "
             f"MeanAcc: {recorded_mean_acceleration:.2f} rad/s² | "
-            f"MeanVel: {recorded_mean_velocity:.2f} rad/s"
+            # f"MeanVel: {recorded_mean_velocity:.2f} rad/s"
         )
         
     except Exception as e:
@@ -458,15 +469,10 @@ def generate_summary(recorded_paths):
             data = json.load(f)
         
         # Extract song name and mode
-        stem = Path(recorded_path).stem.replace("_gmr", "")
-        parts = stem.rsplit("_", 1)
-        if len(parts) == 2:
-            song = parts[0]
-            mode = "online" if "online" in parts[1] else "offline"
-            results_by_song[song][mode].append(data)
-        else:
-            raise ValueError(f"Unexpected recorded path format: {recorded_path}")
-    
+        song = get_song_name(recorded_path)
+        mode = "online" if get_is_online(recorded_path) else "offline"
+        results_by_song[song][mode].append(data)
+
     # Generate summary text
     summary_lines = []
     summary_lines.append("=" * 80)
@@ -477,25 +483,23 @@ def generate_summary(recorded_paths):
     summary_lines.append("")
     
     # Per-song results
-    for song in sorted(results_by_song.keys()):
+    # for song in sorted(results_by_song.keys()):
+    for song in results_by_song.keys():
         summary_lines.append(f"{song}:")
-        for mode in ["offline", "online"]:
+        for mode in ["online", "offline"]:
             trials = results_by_song[song][mode]
             # Only take trials that lasted more than 300 frames (10 seconds at 30 FPS)
             trials = [t for t in trials if t["n_frames"] >= 300]
             if trials:
                 mpjpes = [t["mpjpe_mm"] for t in trials]
+                mpjpes_padded = [t["mpjpe_padded_mm"] for t in trials]
                 smooth = [t["recorded_smoothness"] for t in trials]
-                vel_disc = [t["recorded_velocity_discontinuity"] for t in trials]
-                mean_vel = [t["recorded_mean_velocity"] for t in trials]
                 mean_acc = [t["recorded_mean_acceleration"] for t in trials]
                 summary_lines.append(
                     f"  {mode.capitalize()} (n={len(trials)}): "
                     f"MPJPE={sum(mpjpes)/len(mpjpes):.1f} mm | "
-                    f"({min(mpjpes):.1f}-{max(mpjpes):.1f}), "
+                    f"MPJPE_padded={sum(mpjpes_padded)/len(mpjpes_padded):.1f} mm | "
                     f"Smooth={sum(smooth)/len(smooth):.2f} rad/s³ | "
-                    f"VelDisc={sum(vel_disc)/len(vel_disc):.2f} rad/s | "
-                    f"MeanVel={sum(mean_vel)/len(mean_vel):.2f} rad/s | "
                     f"MeanAcc={sum(mean_acc)/len(mean_acc):.2f} rad/s²"
                 )
     
@@ -503,20 +507,22 @@ def generate_summary(recorded_paths):
     all_offline = []
     all_online = []
     for song_data in results_by_song.values():
-        all_offline.extend(song_data["offline"])
         all_online.extend(song_data["online"])
+        all_offline.extend(song_data["offline"])
     
     summary_lines.append("")
-    if all_offline:
-        mpjpes = [t["mpjpe_mm"] for t in all_offline if t["n_frames"] >= 300]
-        smooth = [t["recorded_smoothness"] for t in all_offline if t["n_frames"] >= 300]
-        mean_acc = [t["recorded_mean_acceleration"] for t in all_offline if t["n_frames"] >= 300]
-        summary_lines.append(f"Overall Offline (n={len(mpjpes)}): MPJPE = {sum(mpjpes)/len(mpjpes):.1f} mm, Smooth = {sum(smooth)/len(smooth):.2f} rad/s³, MeanAcc = {sum(mean_acc)/len(mean_acc):.2f} rad/s²")
     if all_online:
         mpjpes = [t["mpjpe_mm"] for t in all_online if t["n_frames"] >= 300]
+        mpjpes_padded = [t["mpjpe_padded_mm"] for t in all_online if t["n_frames"] >= 300]
         smooth = [t["recorded_smoothness"] for t in all_online if t["n_frames"] >= 300]
         mean_acc = [t["recorded_mean_acceleration"] for t in all_online if t["n_frames"] >= 300]
-        summary_lines.append(f"Overall Online (n={len(mpjpes)}): MPJPE = {sum(mpjpes)/len(mpjpes):.1f} mm, Smooth = {sum(smooth)/len(smooth):.2f} rad/s³, MeanAcc = {sum(mean_acc)/len(mean_acc):.2f} rad/s²")
+        summary_lines.append(f"Overall Online (n={len(mpjpes)}): MPJPE = {sum(mpjpes)/len(mpjpes):.1f} mm, MPJPE_padded = {sum(mpjpes_padded)/len(mpjpes_padded):.1f} mm, Smooth = {sum(smooth)/len(smooth):.2f} rad/s³, MeanAcc = {sum(mean_acc)/len(mean_acc):.2f} rad/s²")
+    if all_offline:
+        mpjpes = [t["mpjpe_mm"] for t in all_offline if t["n_frames"] >= 300]
+        mpjpes_padded = [t["mpjpe_padded_mm"] for t in all_offline if t["n_frames"] >= 300]
+        smooth = [t["recorded_smoothness"] for t in all_offline if t["n_frames"] >= 300]
+        mean_acc = [t["recorded_mean_acceleration"] for t in all_offline if t["n_frames"] >= 300]
+        summary_lines.append(f"Overall Offline (n={len(mpjpes)}): MPJPE = {sum(mpjpes)/len(mpjpes):.1f} mm, MPJPE_padded = {sum(mpjpes_padded)/len(mpjpes_padded):.1f} mm, Smooth = {sum(smooth)/len(smooth):.2f} rad/s³, MeanAcc = {sum(mean_acc)/len(mean_acc):.2f} rad/s²")
 
     summary_lines.append("=" * 80)
     
@@ -531,4 +537,4 @@ def generate_summary(recorded_paths):
     print(f"\n✓ Summary saved to: {output_file}")
     print('\n'.join(summary_lines))
 
-generate_summary(recorded_gmr_paths)
+generate_summary(gmr_paths)

@@ -2,68 +2,42 @@ from tqdm import tqdm
 import pickle
 import numpy as np
 
-recording_paths = [
-    # Old_Town_Road
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_offline.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_online.txt",
-    # Heart_Of_Glass
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_offline.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_online.txt",
-    # Unstoppable
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Unstoppable/Unstoppable_offline.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Unstoppable/Unstoppable_online.txt",
-    # Padam_Padam
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_offline.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_online.txt",
-    # Pink_Venom
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_offline.txt",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_online.txt",
-]
-output_gmr_paths = [
-    # Old_Town_Road
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_offline_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Old_Town_Road/Old_Town_Road_online_gmr.pkl",
-    # Heart_Of_Glass
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_offline_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Heart_Of_Glass/Heart_Of_Glass_online_gmr.pkl",
-    # Unstoppable
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Unstoppable/Unstoppable_offline_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Unstoppable/Unstoppable_online_gmr.pkl",
-    # Padam_Padam
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_offline_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Padam_Padam/Padam_Padam_online_gmr.pkl",
-    # Pink_Venom
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_offline_gmr.pkl",
-    "/home/jkim3662/Videos/Switch4EAI/Switch4EAI_Collaborators_Archive/TWIST_sim/RobotTrajectoryRecord/Pink_Venom/Pink_Venom_online_gmr.pkl",
-]
+# Add parent directory to path
+import sys
+import pathlib
+HERE = pathlib.Path(__file__).parent
+sys.path.append(str(HERE / ".." / ".."))
 
-# recording_paths = [
-#     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Unstoppable/Unstoppable_Online_Reference.txt",
-#     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Pink_Venom/Pink_Venom_Online_Reference.txt",
-#     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Padam_Padam/Padam_Padam_Online_Reference.txt",
-#     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Old_Town_Road/Old_Town_Road_Online_Reference.txt",
-#     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Heart_Of_Glass/Heart_Of_Glass_Online_Reference.txt",
-# ]
-# output_gmr_paths = [
-#     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Unstoppable/Unstoppable_Online_Reference_gmr.pkl",
-#     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Pink_Venom/Pink_Venom_Online_Reference_gmr.pkl",
-#     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Padam_Padam/Padam_Padam_Online_Reference_gmr.pkl",
-#     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Old_Town_Road/Old_Town_Road_Online_Reference_gmr.pkl",
-#     "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Heart_Of_Glass/Heart_Of_Glass_Online_Reference_gmr.pkl",
-# ]
 
-pad_seconds = None
-pad_seconds = [
-    161, 161,# 161, 161, 161, 161,
-    216, 216,# 216, 216, 216, 216,
-    204, 204,# 204, 204, 204, 204,
-    149, 149,# 149, 149, 149, 149,
-    178, 178,# 178, 178, 178, 178,
-]
+# from scripts.evaluate.data.gmt_sim_paths import txt_paths as recording_paths, gmr_paths as output_gmr_paths
+from scripts.evaluate.data.twist_sim_paths import txt_paths as recording_paths, gmr_paths as output_gmr_paths
+# from scripts.evaluate.data.any2track_sim_paths import txt_paths as recording_paths, gmr_paths as output_gmr_paths
+# from scripts.evaluate.data.gmt_paths import txt_paths as recording_paths, gmr_paths as output_gmr_paths
+# from scripts.evaluate.data.twist_paths import txt_paths as recording_paths, gmr_paths as output_gmr_paths
+# from scripts.evaluate.data.any2track_paths import txt_paths as recording_paths, gmr_paths as output_gmr_paths
+
+APPLY_PADDING = True
+SONG_INFO = {
+    "Old_Town_Road": 161,
+    "Heart_Of_Glass": 216,
+    "Unstoppable": 204,
+    "Padam_Padam": 149,
+    "Pink_Venom": 178,
+}
 
 recordings = [
     np.loadtxt(recording_path, delimiter=',') for recording_path in recording_paths
 ]
+
+# Helper function to get song name from path
+from pathlib import Path
+def get_song_name(path):
+    """Extract song name from GMR file path."""
+    filename = Path(path).stem.replace("_poses", "")
+    for song in SONG_INFO.keys():
+        if filename.startswith(song):
+            return song
+    return None
 
 def dof_pos_rec_to_gmr(dof_pos_rec):
     # dof_pos_txt is a numpy array of shape (num_frames, 23)
@@ -92,7 +66,7 @@ def trim_idle_dofs(
     vel_threshold=0.03,
     gap_tolerance=100,
     padding=30,
-    plot_idle=True
+    plot_idle=False
 ):
     vel = np.max(np.abs(np.diff(dof_pos, axis=0)), axis=1)
     vel = np.concatenate([[0], vel])
@@ -185,51 +159,175 @@ def resample_fps_from_timestamps(arr, timestamps, new_fps=30):
         arr_new[:, d] = np.interp(t_new, t_old, arr[:, d])
     return arr_new
 
-for i, recording in tqdm(enumerate(recordings)):
-    dof_pos = recording[:, 1:24]  # Extract DOF positions from columns 1 to 24
+# for i, recording in tqdm(enumerate(recordings)):
+#     dof_pos = recording[:, 1:24]  # Extract DOF positions from columns 1 to 24
     
+#     gmr_dof_pos = dof_pos_rec_to_gmr(dof_pos)
+#     NEW_FPS = 30
+#     gmr_dof_pos = resample_fps_from_timestamps(gmr_dof_pos, recording[:, 0], new_fps=NEW_FPS)
+#     # OLD_FPS = 50
+#     # gmr_dof_pos = resample_fps(gmr_dof_pos, old_fps=OLD_FPS, new_fps=NEW_FPS)
+
+#     gmr_dof_pos = trim_idle_dofs(gmr_dof_pos, padding=NEW_FPS)
+#     n_original_frames = gmr_dof_pos.shape[0]
+
+#     # --- Save unpadded version first ---
+#     gmr_root_pos = np.zeros((n_original_frames, 3))
+#     gmr_root_pos[:, 2] = 1.0
+#     gmr_rot_wxyz = np.zeros((n_original_frames, 4))
+#     gmr_rot_wxyz[:, 0] = 1.0
+#     gmr_rot_xyzw = gmr_rot_wxyz[:, [1, 2, 3, 0]]
+
+#     pose_data_unpadded = {
+#         'fps': NEW_FPS,
+#         'root_pos': gmr_root_pos,
+#         'root_rot': gmr_rot_xyzw,
+#         'dof_pos': gmr_dof_pos,
+#         'local_body_pos': None,
+#         'link_body_list': None,
+#     }
+
+#     outfile_unpadded = output_gmr_paths[i]
+#     print(f"Saving unpadded GMR pickle to: {outfile_unpadded} ({n_original_frames} frames)")
+#     with open(outfile_unpadded, "wb") as f:
+#         pickle.dump(pose_data_unpadded, f)
+
+#     # --- Apply padding if requested ---
+#     if APPLY_PADDING:
+#         n_pad_frames = SONG_INFO[get_song_name(output_gmr_paths[i])] * NEW_FPS
+#         gmr_dof_pos_padded = gmr_dof_pos
+#         if gmr_dof_pos_padded.shape[0] < n_pad_frames:
+#             n_missing = n_pad_frames - gmr_dof_pos_padded.shape[0]
+#             gmr_dof_pos_padded = np.pad(
+#                 gmr_dof_pos_padded,
+#                 ((0, n_missing), (0, 0)),
+#                 mode='edge'
+#             )
+#         else:
+#             gmr_dof_pos_padded = gmr_dof_pos_padded[:n_pad_frames]
+
+#         n_frames_padded = gmr_dof_pos_padded.shape[0]
+#         gmr_root_pos_padded = np.zeros((n_frames_padded, 3))
+#         gmr_root_pos_padded[:, 2] = 1.0
+#         gmr_rot_wxyz_padded = np.zeros((n_frames_padded, 4))
+#         gmr_rot_wxyz_padded[:, 0] = 1.0
+#         gmr_rot_xyzw_padded = gmr_rot_wxyz_padded[:, [1, 2, 3, 0]]
+
+#         pose_data_padded = {
+#             'fps': NEW_FPS,
+#             'root_pos': gmr_root_pos_padded,
+#             'root_rot': gmr_rot_xyzw_padded,
+#             'dof_pos': gmr_dof_pos_padded,
+#             'local_body_pos': None,
+#             'link_body_list': None,
+#         }
+
+#         outfile_padded = output_gmr_paths[i].replace(".pkl", "-padded.pkl")
+#         print(f"Saving padded GMR pickle to: {outfile_padded} ({n_frames_padded} frames)")
+#         with open(outfile_padded, "wb") as f:
+#             pickle.dump(pose_data_padded, f)
+
+#         # Save padding info
+#         n_original = n_original_frames
+#         n_padded = max(0, n_pad_frames - n_original)
+#         info_text = (
+#             f"Original frames: {n_original}\n"
+#             f"Padded frames: {n_padded}\n"
+#             f"Final  frames: {n_frames_padded}\n"
+#             f"Target total frames: {n_pad_frames}\n"
+#             f"Target duration (s): {SONG_INFO[get_song_name(output_gmr_paths[i])]}\n"
+#             f"FPS: {NEW_FPS}\n"
+#         )
+#         info_path = outfile_padded.replace(".pkl", "_padinfo.txt")
+#         with open(info_path, "w") as f:
+#             f.write(info_text)
+
+for i, recording in tqdm(enumerate(recordings)):
+    # --- Step 1. Load raw recording ---
+    n_raw_frames = recording.shape[0]
+    dof_pos = recording[:, 1:24]  # Extract DOF positions
+    print(f"\n[{i}] Raw frames: {n_raw_frames}")
+
+    # --- Step 2. Convert and resample ---
     gmr_dof_pos = dof_pos_rec_to_gmr(dof_pos)
     NEW_FPS = 30
     gmr_dof_pos = resample_fps_from_timestamps(gmr_dof_pos, recording[:, 0], new_fps=NEW_FPS)
-    # OLD_FPS = 50
-    # gmr_dof_pos = resample_fps(gmr_dof_pos, old_fps=OLD_FPS, new_fps=NEW_FPS)
 
+    # --- Step 3. Trim idle motion ---
     gmr_dof_pos = trim_idle_dofs(gmr_dof_pos, padding=NEW_FPS)
-    if pad_seconds is not None:
-        n_pad_frames = pad_seconds[i] * NEW_FPS
-        # If gmr_dof_pos has fewer than n_pad_frames frames, pad at the end.
-        if gmr_dof_pos.shape[0] < n_pad_frames:
-            n_missing = n_pad_frames - gmr_dof_pos.shape[0]
-            gmr_dof_pos = np.pad(
-                gmr_dof_pos,
-                ((0, n_missing), (0, 0)),
-                mode='edge'
-            )
-        # If it's longer, trim
-        else:
-            gmr_dof_pos = gmr_dof_pos[:n_pad_frames]
-    n_frames = gmr_dof_pos.shape[0]
+    n_trimmed_frames = gmr_dof_pos.shape[0]
+    print(f"Trimmed frames: {n_trimmed_frames}")
 
-    gmr_root_pos = np.zeros((n_frames, 3))  # Set root position to zeros
-    gmr_root_pos[:, 2] = 1.0  # Set a constant height for the root (e.g., z=1.0)
-    gmr_rot_wxyz = np.zeros((n_frames, 4))
-    gmr_rot_wxyz[:, 0] = 1.0  # Set w component to 1 (no rotation)
-    gmr_rot_xyzw = gmr_rot_wxyz[:, [1, 2, 3, 0]]  # Convert wxyz to xyzw if needed
+    # --- Step 4. Save unpadded GMR ---
+    gmr_root_pos = np.zeros((n_trimmed_frames, 3))
+    gmr_root_pos[:, 2] = 1.0
+    gmr_rot_wxyz = np.zeros((n_trimmed_frames, 4))
+    gmr_rot_wxyz[:, 0] = 1.0
+    gmr_rot_xyzw = gmr_rot_wxyz[:, [1, 2, 3, 0]]
 
-    pose_data = {
-        'fps': 30,
-        'root_pos': gmr_root_pos,  # Columns 1 to 4 for root position
-        'root_rot': gmr_rot_xyzw,  # Columns 4 to 7 for root rotation
+    pose_data_unpadded = {
+        'fps': NEW_FPS,
+        'root_pos': gmr_root_pos,
+        'root_rot': gmr_rot_xyzw,
         'dof_pos': gmr_dof_pos,
-        'local_body_pos': None,  # Not available in the recording
-        'link_body_list': None,  # Not available in the recording
+        'local_body_pos': None,
+        'link_body_list': None,
     }
-    
-    print(f"Saving GMR pickle to: {output_gmr_paths[i]}"
-          f" with {n_frames} frames. corresponding to {n_frames/NEW_FPS:.2f} seconds. ")
-    outfile_path = output_gmr_paths[i]
-    if pad_seconds is not None:
-        outfile_path = outfile_path.replace(".pkl", f"-padded.pkl")
-    with open(outfile_path, "wb") as f:
-        pickle.dump(pose_data, f)
 
+    outfile_unpadded = output_gmr_paths[i]
+    print(f"Saving unpadded GMR pickle to: {outfile_unpadded} ({n_trimmed_frames} frames)")
+    with open(outfile_unpadded, "wb") as f:
+        pickle.dump(pose_data_unpadded, f)
+
+    # --- Step 5. Apply padding (if requested) ---
+    if APPLY_PADDING:
+        song_name = get_song_name(output_gmr_paths[i])
+        n_pad_frames = SONG_INFO[song_name] * NEW_FPS
+
+        if n_trimmed_frames < n_pad_frames:
+            n_missing = n_pad_frames - n_trimmed_frames
+            gmr_dof_pos_padded = np.pad(
+                gmr_dof_pos, ((0, n_missing), (0, 0)), mode='edge'
+            )
+        else:
+            n_missing = 0
+            gmr_dof_pos_padded = gmr_dof_pos
+
+        n_padded_frames = gmr_dof_pos_padded.shape[0]
+
+        gmr_root_pos_padded = np.zeros((n_padded_frames, 3))
+        gmr_root_pos_padded[:, 2] = 1.0
+        gmr_rot_wxyz_padded = np.zeros((n_padded_frames, 4))
+        gmr_rot_wxyz_padded[:, 0] = 1.0
+        gmr_rot_xyzw_padded = gmr_rot_wxyz_padded[:, [1, 2, 3, 0]]
+
+        pose_data_padded = {
+            'fps': NEW_FPS,
+            'root_pos': gmr_root_pos_padded,
+            'root_rot': gmr_rot_xyzw_padded,
+            'dof_pos': gmr_dof_pos_padded,
+            'local_body_pos': None,
+            'link_body_list': None,
+        }
+
+        outfile_padded = output_gmr_paths[i].replace(".pkl", "-padded.pkl")
+        print(f"Saving padded GMR pickle to: {outfile_padded} ({n_padded_frames} frames)")
+        with open(outfile_padded, "wb") as f:
+            pickle.dump(pose_data_padded, f)
+
+        # --- Step 6. Save info summary --- 
+        n_added_padding = max(0, n_pad_frames - n_trimmed_frames)
+        info_text = (
+            f"Original raw frames: {n_raw_frames}\n"
+            f"Trimmed active frames: {n_trimmed_frames}\n"
+            f"Padded frames added: {n_added_padding}\n"
+            f"Padded total frames: {n_padded_frames}\n"
+            f"Target duration (s): {SONG_INFO[song_name]}\n"
+            f"FPS: {NEW_FPS}\n"
+        )
+        info_path = outfile_padded.replace(".pkl", "_padinfo.txt")
+        with open(info_path, "w") as f:
+            f.write(info_text)
+
+        print(f"✅ Summary for {song_name}:")
+        print(info_text)

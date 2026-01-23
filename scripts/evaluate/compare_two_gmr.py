@@ -61,12 +61,14 @@ HERE = pathlib.Path(__file__).parent
 sys.path.append(str(HERE / ".." / ".."))
 
 # Recording GMR files
-from scripts.evaluate.data.gmt_sim_paths import gmr_paths, gmr_padded_paths
+# from scripts.evaluate.data.gmt_sim_paths import gmr_paths, gmr_padded_paths
 # from scripts.evaluate.data.twist_sim_paths import gmr_paths, gmr_padded_paths
 # from scripts.evaluate.data.any2track_sim_paths import gmr_paths, gmr_padded_paths
 # from scripts.evaluate.data.gmt_paths import gmr_paths, gmr_padded_paths
 # from scripts.evaluate.data.twist_paths import gmr_paths, gmr_padded_paths
-# from scripts.evaluate.data.any2track_paths import gmr_paths, gmr_padded_paths
+from scripts.evaluate.data.any2track_paths import gmr_paths, gmr_padded_paths
+
+# from scripts.evaluate.data.human_paths import gmr_paths, gmr_padded_paths
 
 # Reference GMR 
 REFERENCE_GMR_MAP_OFFLINE = {
@@ -84,6 +86,9 @@ REFERENCE_GMR_MAP_ONLINE = {
     "Pink_Venom": "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Pink_Venom/Pink_Venom_Online_Reference.pkl",
 }
 
+# gmr_paths = [path for path in REFERENCE_GMR_MAP_OFFLINE.values()]
+gmr_paths = [path for path in REFERENCE_GMR_MAP_ONLINE.values()]
+gmr_padded_paths = gmr_paths
 
 # Helper function to get song name from path
 def get_song_name(path):
@@ -103,6 +108,7 @@ def get_is_online(path):
 
 def get_reference_map(path):
     """Get appropriate reference map based on online/offline status."""
+    return REFERENCE_GMR_MAP_OFFLINE
     if get_is_online(path):
         return REFERENCE_GMR_MAP_ONLINE
     else:
@@ -381,7 +387,7 @@ for i, recorded_gmr_path in enumerate(tqdm(gmr_paths, desc="Processing recording
         
         n_frames = recorded_body_pos_aligned.shape[0]
 
-
+        UPPERBODY_INDICES = [15, 16, 17, 18, 19, 20, 21, 22]  # Arms
         # Compute metrics
         mpjpe = compute_mpjpe(recorded_body_pos_aligned, reference_body_pos_aligned)
         recorded_smoothness, recorded_velocity_discontinuity, recorded_mean_velocity, recorded_mean_acceleration = compute_joint_smoothness(

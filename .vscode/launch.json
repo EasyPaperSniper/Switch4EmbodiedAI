@@ -6,6 +6,24 @@
     "configurations": [
 
         {
+            "name": "recordings_to_gmr_pickles",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "scripts/preprocess/recordings_to_gmr_pickles.py",
+            "console": "integratedTerminal",
+            "args": [
+            ]
+        },
+        {
+            "name": "compare_two_gmr",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "scripts/evaluate/compare_two_gmr.py",
+            "console": "integratedTerminal",
+            "args": [
+            ]
+        },
+        {
             "name": "compare_two_hmr_mpjpe",
             "type": "debugpy",
             "request": "launch",

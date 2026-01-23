@@ -10,11 +10,11 @@ sys.path.append(str(HERE / ".." / ".."))
 
 
 # from scripts.evaluate.data.gmt_sim_paths import txt_paths as recording_paths, gmr_paths as output_gmr_paths
-from scripts.evaluate.data.twist_sim_paths import txt_paths as recording_paths, gmr_paths as output_gmr_paths
+# from scripts.evaluate.data.twist_sim_paths import txt_paths as recording_paths, gmr_paths as output_gmr_paths
 # from scripts.evaluate.data.any2track_sim_paths import txt_paths as recording_paths, gmr_paths as output_gmr_paths
 # from scripts.evaluate.data.gmt_paths import txt_paths as recording_paths, gmr_paths as output_gmr_paths
 # from scripts.evaluate.data.twist_paths import txt_paths as recording_paths, gmr_paths as output_gmr_paths
-# from scripts.evaluate.data.any2track_paths import txt_paths as recording_paths, gmr_paths as output_gmr_paths
+from scripts.evaluate.data.any2track_paths import txt_paths as recording_paths, gmr_paths as output_gmr_paths
 
 APPLY_PADDING = True
 SONG_INFO = {
@@ -66,7 +66,8 @@ def trim_idle_dofs(
     vel_threshold=0.03,
     gap_tolerance=100,
     padding=30,
-    plot_idle=False
+    plot_idle=True,
+    plot_name="None"
 ):
     vel = np.max(np.abs(np.diff(dof_pos, axis=0)), axis=1)
     vel = np.concatenate([[0], vel])
@@ -115,7 +116,7 @@ def trim_idle_dofs(
 
     if plot_idle:
         import matplotlib.pyplot as plt
-        plt.figure(figsize=(14,4))
+        plt.figure(plot_name, figsize=(14,4))
         plt.plot(vel, label='Velocity')
         plt.axhline(vel_threshold, color='r', linestyle='--', label='Threshold')
         plt.axvline(start, color='g', linestyle='--', label='Start Trim')
@@ -250,11 +251,19 @@ for i, recording in tqdm(enumerate(recordings)):
 
     # --- Step 2. Convert and resample ---
     gmr_dof_pos = dof_pos_rec_to_gmr(dof_pos)
+    # if True:  # Only for GMT_sim!
+    #     default_angles = [-0.2, 0.0, 0.0, 0.4, -0.2, 0.0,
+    #                 -0.2, 0.0, 0.0, 0.4, -0.2, 0.0,
+    #                 0.0, 0.0, 0.0,
+    #                 0.0, 0.4, 0.0, 1.2, 0.0, 0.0, 0.0,
+    #                 0.0, -0.4, 0.0, 1.2, 0.0, 0.0, 0.0]
+    #     gmr_dof_pos += np.array(default_angles)[None,...]
     NEW_FPS = 30
     gmr_dof_pos = resample_fps_from_timestamps(gmr_dof_pos, recording[:, 0], new_fps=NEW_FPS)
+    # gmr_dof_pos = resample_fps(gmr_dof_pos, old_fps=50, new_fps=NEW_FPS)
 
     # --- Step 3. Trim idle motion ---
-    gmr_dof_pos = trim_idle_dofs(gmr_dof_pos, padding=NEW_FPS)
+    gmr_dof_pos = trim_idle_dofs(gmr_dof_pos, padding=NEW_FPS, plot_name=recording_paths[i])
     n_trimmed_frames = gmr_dof_pos.shape[0]
     print(f"Trimmed frames: {n_trimmed_frames}")
 

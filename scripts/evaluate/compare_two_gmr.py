@@ -23,6 +23,8 @@ from tqdm import tqdm
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation as R
 
+from metrics import compute_mpjpe, compute_joint_smoothness, compute_dtw
+
 # Add GMR to path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GMR_ROOT = REPO_ROOT / "third_party" / "GMR"
@@ -220,70 +222,6 @@ def compute_forward_kinematics(xml_file, data, device='cpu', batch_size=256):
     return body_positions, body_names
 
 
-def compute_mpjpe(recorded_pos, reference_pos):
-    """Compute Mean Per Joint Position Error.
-    
-    Args:
-        recorded_pos: (T, num_joints, 3)
-        reference_pos: (T, num_joints, 3)
-    
-    Returns:
-        mpjpe: mean per joint position error (meters)
-        per_joint_error: (num_joints,) array of mean error per joint
-        per_frame_error: (T,) array of mean error per frame
-    """
-    # Euclidean distance per joint per frame
-    diff = recorded_pos - reference_pos
-    distances = np.linalg.norm(diff, axis=2)  # (T, num_joints)
-    
-    # Mean across all frames and joints
-    mpjpe = np.mean(distances)
-    
-    # # Mean per joint (across time)
-    # per_joint_error = np.mean(distances, axis=0)
-    
-    # # Mean per frame (across joints)
-    # per_frame_error = np.mean(distances, axis=1)
-    
-    return mpjpe
-
-
-def compute_joint_smoothness(dof_pos, fps):
-    """Compute joint smoothness using jerk and velocity discontinuities.
-    
-    Args:
-        dof_pos: (T, num_dof) joint positions
-        fps: framerate (samples per second)
-    
-    Returns:
-        smoothness: mean jerk magnitude (rad/s^3)
-        velocity_discontinuity: mean velocity jump magnitude (rad/s)
-    """
-    dt = 1.0 / fps
-    
-    # 1st derivative: velocity
-    velocity = np.diff(dof_pos, axis=0) / dt  # (T-1, num_dof)
-    mean_velocity = np.mean(np.linalg.norm(velocity, axis=1))
-    
-    # 2nd derivative: acceleration
-    acceleration = np.diff(velocity, axis=0) / dt  # (T-2, num_dof)
-    mean_acceleration = np.mean(np.linalg.norm(acceleration, axis=1))
-    
-    # 3rd derivative: jerk
-    jerk = np.diff(acceleration, axis=0) / dt  # (T-3, num_dof)
-    
-    # Smoothness = mean jerk magnitude
-    jerk_magnitude = np.linalg.norm(jerk, axis=1)
-    smoothness = np.mean(jerk_magnitude)
-    
-    # Velocity discontinuity = magnitude of velocity jumps
-    vel_jump = np.diff(velocity, axis=0)
-    velocity_discontinuity = np.mean(np.linalg.norm(vel_jump, axis=1))
-    
-    
-    return smoothness, velocity_discontinuity, mean_velocity, mean_acceleration
-
-
 def find_optimal_time_alignment_mpjpe(recorded_body_pos, reference_body_pos, max_shift=None):
     """Find optimal time alignment by minimizing MPJPE.
     
@@ -399,6 +337,7 @@ def compare_two_gmr(gmr_paths, gmr_padded_paths, reference_gmr_paths, verbose=Tr
                 recorded_data['dof_pos'][recorded_aligned_indices], recorded_data['fps']
             )
             mpjpe_lower = compute_mpjpe(recorded_body_pos_aligned[:, GMR_G1_MPJPE_LOWER_BODY_INDICES], reference_body_pos_aligned[:, GMR_G1_MPJPE_LOWER_BODY_INDICES])
+            dtw = compute_dtw(recorded_body_pos_aligned[:, GMR_G1_MPJPE_FULL_BODY_INDICES], reference_body_pos_aligned[:, GMR_G1_MPJPE_FULL_BODY_INDICES])
 
             if True: # Compute metrics for padded GMR
                 recorded_padded_gmr_path = gmr_padded_paths[i]
@@ -415,6 +354,7 @@ def compare_two_gmr(gmr_paths, gmr_padded_paths, reference_gmr_paths, verbose=Tr
                 # Compute metrics
                 mpjpe_padded = compute_mpjpe(recorded_padded_body_pos_aligned[:, GMR_G1_MPJPE_FULL_BODY_INDICES], reference_padded_body_pos_aligned[:, GMR_G1_MPJPE_FULL_BODY_INDICES])
                 mpjpe_padded_lower = compute_mpjpe(recorded_padded_body_pos_aligned[:, GMR_G1_MPJPE_LOWER_BODY_INDICES], reference_padded_body_pos_aligned[:, GMR_G1_MPJPE_LOWER_BODY_INDICES])
+                dtw_padded = compute_dtw(recorded_padded_body_pos_aligned[:, GMR_G1_MPJPE_FULL_BODY_INDICES], reference_padded_body_pos_aligned[:, GMR_G1_MPJPE_FULL_BODY_INDICES])
 
             
             # Save results
@@ -428,6 +368,8 @@ def compare_two_gmr(gmr_paths, gmr_padded_paths, reference_gmr_paths, verbose=Tr
                 'mpjpe_padded_mm': float(mpjpe_padded * 1000),
                 'mpjpe_lower_mm': float(mpjpe_lower * 1000),
                 'mpjpe_padded_lower_mm': float(mpjpe_padded_lower * 1000),
+                'dtw_mm': float(dtw * 1000),
+                'dtw_padded_mm': float(dtw_padded * 1000),
                 # 'body_names': body_names,
                 'recorded_smoothness': float(recorded_smoothness),
                 # 'reference_smoothness': float(reference_smoothness),
@@ -509,6 +451,8 @@ def generate_summary(recorded_paths, summary_suffix=""):
                 mpjpes_padded = [t["mpjpe_padded_mm"] for t in trials]
                 mpjpes_lower = [t["mpjpe_lower_mm"] for t in trials]
                 mpjpes_padded_lower = [t["mpjpe_padded_lower_mm"] for t in trials]
+                dtw = [t["dtw_mm"] for t in trials]
+                dtw_padded = [t["dtw_padded_mm"] for t in trials]
                 smooth = [t["recorded_smoothness"] for t in trials]
                 mean_acc = [t["recorded_mean_acceleration"] for t in trials]
                 summary_lines.append(
@@ -517,6 +461,8 @@ def generate_summary(recorded_paths, summary_suffix=""):
                     f"MPJPE_padded={sum(mpjpes_padded)/len(mpjpes_padded):.1f} mm | "
                     f"MPJPE_lower={sum(mpjpes_lower)/len(mpjpes_lower):.1f} mm | "
                     f"MPJPE_padded_lower={sum(mpjpes_padded_lower)/len(mpjpes_padded_lower):.1f} mm | "
+                    f"DTW={sum(dtw)/len(dtw):.1f} mm | "
+                    f"DTW_padded_lower={sum(dtw_padded)/len(dtw_padded):.1f} mm | "
                     f"Smooth={sum(smooth)/len(smooth):.2f} rad/s³ | "
                     f"MeanAcc={sum(mean_acc)/len(mean_acc):.2f} rad/s²"
                 )
@@ -534,17 +480,21 @@ def generate_summary(recorded_paths, summary_suffix=""):
         mpjpes_padded = [t["mpjpe_padded_mm"] for t in all_online if t["n_frames"] >= 300]
         mpjpes_lower = [t["mpjpe_lower_mm"] for t in all_online if t["n_frames"] >= 300]
         mpjpes_padded_lower = [t["mpjpe_padded_lower_mm"] for t in all_online if t["n_frames"] >= 300]
+        dtw = [t["dtw_mm"] for t in all_online if t["n_frames"] >= 300]
+        dtw_padded = [t["dtw_padded_mm"] for t in all_online if t["n_frames"] >= 300]
         smooth = [t["recorded_smoothness"] for t in all_online if t["n_frames"] >= 300]
         mean_acc = [t["recorded_mean_acceleration"] for t in all_online if t["n_frames"] >= 300]
-        summary_lines.append(f"Overall Online (n={len(mpjpes)}): MPJPE = {sum(mpjpes)/len(mpjpes):.1f} mm, MPJPE_padded = {sum(mpjpes_padded)/len(mpjpes_padded):.1f} mm, MPJPE_lower = {sum(mpjpes_lower)/len(mpjpes_lower):.1f} mm, MPJPE_padded_lower = {sum(mpjpes_padded_lower)/len(mpjpes_padded_lower):.1f} mm, Smooth = {sum(smooth)/len(smooth):.2f} rad/s³, MeanAcc = {sum(mean_acc)/len(mean_acc):.2f} rad/s²")
+        summary_lines.append(f"Overall Online (n={len(mpjpes)}): MPJPE = {sum(mpjpes)/len(mpjpes):.1f} mm, MPJPE_padded = {sum(mpjpes_padded)/len(mpjpes_padded):.1f} mm, MPJPE_lower = {sum(mpjpes_lower)/len(mpjpes_lower):.1f} mm, MPJPE_padded_lower = {sum(mpjpes_padded_lower)/len(mpjpes_padded_lower):.1f} mm, DTW = {sum(dtw)/len(dtw):.2f} mm, DTW_padded = {sum(dtw_padded)/len(dtw_padded):.2f} mm, Smooth = {sum(smooth)/len(smooth):.2f} rad/s³, MeanAcc = {sum(mean_acc)/len(mean_acc):.2f} rad/s²")
     if all_offline:
         mpjpes = [t["mpjpe_mm"] for t in all_offline if t["n_frames"] >= 300]
         mpjpes_padded = [t["mpjpe_padded_mm"] for t in all_offline if t["n_frames"] >= 300]
         mpjpes_lower = [t["mpjpe_lower_mm"] for t in all_offline if t["n_frames"] >= 300]
         mpjpes_padded_lower = [t["mpjpe_padded_lower_mm"] for t in all_offline if t["n_frames"] >= 300]
+        dtw = [t["dtw_mm"] for t in all_offline if t["n_frames"] >= 300]
+        dtw_padded = [t["dtw_padded_mm"] for t in all_offline if t["n_frames"] >= 300]
         smooth = [t["recorded_smoothness"] for t in all_offline if t["n_frames"] >= 300]
         mean_acc = [t["recorded_mean_acceleration"] for t in all_offline if t["n_frames"] >= 300]
-        summary_lines.append(f"Overall Offline (n={len(mpjpes)}): MPJPE = {sum(mpjpes)/len(mpjpes):.1f} mm, MPJPE_padded = {sum(mpjpes_padded)/len(mpjpes_padded):.1f} mm, MPJPE_lower = {sum(mpjpes_lower)/len(mpjpes_lower):.1f} mm, MPJPE_padded_lower = {sum(mpjpes_padded_lower)/len(mpjpes_padded_lower):.1f} mm, Smooth = {sum(smooth)/len(smooth):.2f} rad/s³, MeanAcc = {sum(mean_acc)/len(mean_acc):.2f} rad/s²")
+        summary_lines.append(f"Overall Offline (n={len(mpjpes)}): MPJPE = {sum(mpjpes)/len(mpjpes):.1f} mm, MPJPE_padded = {sum(mpjpes_padded)/len(mpjpes_padded):.1f} mm, MPJPE_lower = {sum(mpjpes_lower)/len(mpjpes_lower):.1f} mm, MPJPE_padded_lower = {sum(mpjpes_padded_lower)/len(mpjpes_padded_lower):.1f} mm, DTW = {sum(dtw)/len(dtw):.2f} mm, DTW_padded = {sum(dtw_padded)/len(dtw_padded):.2f} mm, Smooth = {sum(smooth)/len(smooth):.2f} rad/s³, MeanAcc = {sum(mean_acc)/len(mean_acc):.2f} rad/s²")
 
     summary_lines.append("=" * 80)
     

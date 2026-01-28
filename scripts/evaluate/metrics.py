@@ -138,3 +138,75 @@ def compute_dtw(recorded_pos, reference_pos, normalize=True):
     # Average error in mm
     return total_cost / path_len
 
+
+def compute_tlcc(recorded_pos, reference_pos, fps=30.0):
+    """
+    Compute Time-Lagged Cross-Correlation (TLCC) and Phase Lag.
+    
+    This metric separates 'temporal delay' from 'morphological error'.
+    It answers: "If we shift the signals to align in time, how well do they match?"
+    
+    Args:
+        recorded_pos: (T1, num_joints, 3) - The robot/recorded motion
+        reference_pos: (T2, num_joints, 3) - The target/reference motion
+        fps: Frames per second (float) - Used to calculate lag in milliseconds
+        
+    Returns:
+        peak_corr (float): The maximum Pearson correlation coefficient [-1, 1].
+                           1.0 = Perfect shape match.
+        phase_lag_ms (float): The temporal lag in milliseconds. 
+                              Positive (+) = Robot is DELAYED (Late).
+                              Negative (-) = Robot is AHEAD (Early).
+    """
+    # 1. Flatten the spatial dimensions (T, J, 3) -> (T, J*3)
+    # We treat the whole pose as a single high-dimensional vector at each timestep.
+    T1, num_joints, _ = recorded_pos.shape
+    T2 = reference_pos.shape[0]
+    
+    flat_rec = recorded_pos.reshape(T1, -1)
+    flat_ref = reference_pos.reshape(T2, -1)
+    
+    # 2. Normalize features (Z-score) to compute Pearson Correlation
+    # Subtract mean and divide by std deviation for each dimension (joint coordinate)
+    # This ensures the magnitude of movement doesn't bias the correlation, only the 'shape'.
+    rec_centered = flat_rec - np.mean(flat_rec, axis=0)
+    ref_centered = flat_ref - np.mean(flat_ref, axis=0)
+    
+    rec_std = np.std(flat_rec, axis=0)
+    ref_std = np.std(flat_ref, axis=0)
+    
+    # Avoid division by zero for static joints
+    rec_std[rec_std == 0] = 1.0
+    ref_std[ref_std == 0] = 1.0
+    
+    rec_norm = rec_centered / rec_std
+    ref_norm = ref_centered / ref_std
+
+    # 3. Compute Cross-Correlation averaged across all dimensions
+    # We compute the correlation for each coordinate and take the mean profile.
+    # This is robust against one specific joint having high variance.
+    num_features = flat_rec.shape[1]
+    total_corr = np.zeros(T1 + T2 - 1)
+    
+    for i in range(num_features):
+        # mode='full' returns the convolution at all possible overlaps
+        total_corr += np.correlate(rec_norm[:, i], ref_norm[:, i], mode='full')
+    
+    # Average across joints/coordinates and normalize by sequence length
+    # Note: Strictly speaking, Pearson divides by N. In 'full' mode, N varies, 
+    # but for finding the peak in similar-length sequences, dividing by the 
+    # max length is a standard approximation for the coefficient.
+    avg_corr = total_corr / (num_features * max(T1, T2))
+    
+    # 4. Find the Peak and the Lag
+    peak_idx = np.argmax(avg_corr)
+    peak_corr = avg_corr[peak_idx]
+    
+    # 5. Convert Index to Time Lag
+    # In np.correlate(Rec, Ref), the index 0 corresponds to Rec sliding 
+    # all the way to the left of Ref. The "zero lag" center is at index len(Ref) - 1.
+    # Formula: Lag = Peak_Index - (Length_Reference - 1)
+    shift_frames = peak_idx - (T2 - 1)
+    phase_lag_ms = (shift_frames / fps) * 1000.0
+    
+    return peak_corr, phase_lag_ms

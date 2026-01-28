@@ -23,7 +23,7 @@ from tqdm import tqdm
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation as R
 
-from metrics import compute_mpjpe, compute_joint_smoothness, compute_dtw
+from metrics import compute_mpjpe, compute_joint_smoothness, compute_dtw, compute_tlcc
 
 # Add GMR to path
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -338,6 +338,7 @@ def compare_two_gmr(gmr_paths, gmr_padded_paths, reference_gmr_paths, verbose=Tr
             )
             mpjpe_lower = compute_mpjpe(recorded_body_pos_aligned[:, GMR_G1_MPJPE_LOWER_BODY_INDICES], reference_body_pos_aligned[:, GMR_G1_MPJPE_LOWER_BODY_INDICES])
             dtw = compute_dtw(recorded_body_pos_aligned[:, GMR_G1_MPJPE_FULL_BODY_INDICES], reference_body_pos_aligned[:, GMR_G1_MPJPE_FULL_BODY_INDICES])
+            cross_corr, phase_lag = compute_tlcc(recorded_body_pos_aligned[:, GMR_G1_MPJPE_FULL_BODY_INDICES], reference_body_pos_aligned[:, GMR_G1_MPJPE_FULL_BODY_INDICES])
 
             if True: # Compute metrics for padded GMR
                 recorded_padded_gmr_path = gmr_padded_paths[i]
@@ -355,6 +356,7 @@ def compare_two_gmr(gmr_paths, gmr_padded_paths, reference_gmr_paths, verbose=Tr
                 mpjpe_padded = compute_mpjpe(recorded_padded_body_pos_aligned[:, GMR_G1_MPJPE_FULL_BODY_INDICES], reference_padded_body_pos_aligned[:, GMR_G1_MPJPE_FULL_BODY_INDICES])
                 mpjpe_padded_lower = compute_mpjpe(recorded_padded_body_pos_aligned[:, GMR_G1_MPJPE_LOWER_BODY_INDICES], reference_padded_body_pos_aligned[:, GMR_G1_MPJPE_LOWER_BODY_INDICES])
                 dtw_padded = compute_dtw(recorded_padded_body_pos_aligned[:, GMR_G1_MPJPE_FULL_BODY_INDICES], reference_padded_body_pos_aligned[:, GMR_G1_MPJPE_FULL_BODY_INDICES])
+                cross_corr_padded, phase_lag_padded = compute_tlcc(recorded_padded_body_pos_aligned[:, GMR_G1_MPJPE_FULL_BODY_INDICES], reference_padded_body_pos_aligned[:, GMR_G1_MPJPE_FULL_BODY_INDICES])
 
             
             # Save results
@@ -370,6 +372,10 @@ def compare_two_gmr(gmr_paths, gmr_padded_paths, reference_gmr_paths, verbose=Tr
                 'mpjpe_padded_lower_mm': float(mpjpe_padded_lower * 1000),
                 'dtw_mm': float(dtw * 1000),
                 'dtw_padded_mm': float(dtw_padded * 1000),
+                'cross_correlation': float(cross_corr),
+                'phase_lag': float(phase_lag),
+                'cross_correlation_padded': float(cross_corr_padded),
+                'phase_lag_padded': float(phase_lag_padded),
                 # 'body_names': body_names,
                 'recorded_smoothness': float(recorded_smoothness),
                 # 'reference_smoothness': float(reference_smoothness),
@@ -453,6 +459,10 @@ def generate_summary(recorded_paths, summary_suffix=""):
                 mpjpes_padded_lower = [t["mpjpe_padded_lower_mm"] for t in trials]
                 dtw = [t["dtw_mm"] for t in trials]
                 dtw_padded = [t["dtw_padded_mm"] for t in trials]
+                cross_corrs = [t["cross_correlation"] for t in trials]
+                phase_lags = [t["phase_lag"] for t in trials]
+                cross_corrs_padded = [t["cross_correlation_padded"] for t in trials]
+                phase_lags_padded = [t["phase_lag_padded"] for t in trials]
                 smooth = [t["recorded_smoothness"] for t in trials]
                 mean_acc = [t["recorded_mean_acceleration"] for t in trials]
                 summary_lines.append(
@@ -463,6 +473,10 @@ def generate_summary(recorded_paths, summary_suffix=""):
                     f"MPJPE_padded_lower={sum(mpjpes_padded_lower)/len(mpjpes_padded_lower):.1f} mm | "
                     f"DTW={sum(dtw)/len(dtw):.1f} mm | "
                     f"DTW_padded_lower={sum(dtw_padded)/len(dtw_padded):.1f} mm | "
+                    f"CrossCorr={sum(cross_corrs)/len(cross_corrs):.3f} | "
+                    f"PhaseLag={sum(phase_lags)/len(phase_lags):.2f} frames | "
+                    f"CrossCorr_padded={sum(cross_corrs_padded)/len(cross_corrs_padded):.3f} | "
+                    f"PhaseLag_padded={sum(phase_lags_padded)/len(phase_lags_padded):.2f} frames | "
                     f"Smooth={sum(smooth)/len(smooth):.2f} rad/s³ | "
                     f"MeanAcc={sum(mean_acc)/len(mean_acc):.2f} rad/s²"
                 )
@@ -482,9 +496,13 @@ def generate_summary(recorded_paths, summary_suffix=""):
         mpjpes_padded_lower = [t["mpjpe_padded_lower_mm"] for t in all_online if t["n_frames"] >= 300]
         dtw = [t["dtw_mm"] for t in all_online if t["n_frames"] >= 300]
         dtw_padded = [t["dtw_padded_mm"] for t in all_online if t["n_frames"] >= 300]
+        cross_corrs = [t["cross_correlation"] for t in all_online if t["n_frames"] >= 300]
+        phase_lags = [t["phase_lag"] for t in all_online if t["n_frames"] >= 300]
+        cross_corrs_padded = [t["cross_correlation_padded"] for t in all_online if t["n_frames"] >= 300]
+        phase_lags_padded = [t["phase_lag_padded"] for t in all_online if t["n_frames"] >= 300]
         smooth = [t["recorded_smoothness"] for t in all_online if t["n_frames"] >= 300]
         mean_acc = [t["recorded_mean_acceleration"] for t in all_online if t["n_frames"] >= 300]
-        summary_lines.append(f"Overall Online (n={len(mpjpes)}): MPJPE = {sum(mpjpes)/len(mpjpes):.1f} mm, MPJPE_padded = {sum(mpjpes_padded)/len(mpjpes_padded):.1f} mm, MPJPE_lower = {sum(mpjpes_lower)/len(mpjpes_lower):.1f} mm, MPJPE_padded_lower = {sum(mpjpes_padded_lower)/len(mpjpes_padded_lower):.1f} mm, DTW = {sum(dtw)/len(dtw):.2f} mm, DTW_padded = {sum(dtw_padded)/len(dtw_padded):.2f} mm, Smooth = {sum(smooth)/len(smooth):.2f} rad/s³, MeanAcc = {sum(mean_acc)/len(mean_acc):.2f} rad/s²")
+        summary_lines.append(f"Overall Online (n={len(mpjpes)}): MPJPE = {sum(mpjpes)/len(mpjpes):.1f} mm, MPJPE_padded = {sum(mpjpes_padded)/len(mpjpes_padded):.1f} mm, MPJPE_lower = {sum(mpjpes_lower)/len(mpjpes_lower):.1f} mm, MPJPE_padded_lower = {sum(mpjpes_padded_lower)/len(mpjpes_padded_lower):.1f} mm, DTW = {sum(dtw)/len(dtw):.2f} mm, DTW_padded = {sum(dtw_padded)/len(dtw_padded):.2f} mm, CrossCorr = {sum(cross_corrs)/len(cross_corrs):.3f}, PhaseLag = {sum(phase_lags)/len(phase_lags):.2f} frames, CrossCorr_padded = {sum(cross_corrs_padded)/len(cross_corrs_padded):.3f}, PhaseLag_padded = {sum(phase_lags_padded)/len(phase_lags_padded):.2f} frames, Smooth = {sum(smooth)/len(smooth):.2f} rad/s³, MeanAcc = {sum(mean_acc)/len(mean_acc):.2f} rad/s²")
     if all_offline:
         mpjpes = [t["mpjpe_mm"] for t in all_offline if t["n_frames"] >= 300]
         mpjpes_padded = [t["mpjpe_padded_mm"] for t in all_offline if t["n_frames"] >= 300]
@@ -492,9 +510,13 @@ def generate_summary(recorded_paths, summary_suffix=""):
         mpjpes_padded_lower = [t["mpjpe_padded_lower_mm"] for t in all_offline if t["n_frames"] >= 300]
         dtw = [t["dtw_mm"] for t in all_offline if t["n_frames"] >= 300]
         dtw_padded = [t["dtw_padded_mm"] for t in all_offline if t["n_frames"] >= 300]
+        cross_corrs = [t["cross_correlation"] for t in all_offline if t["n_frames"] >= 300]
+        phase_lags = [t["phase_lag"] for t in all_offline if t["n_frames"] >= 300]
+        cross_corrs_padded = [t["cross_correlation_padded"] for t in all_offline if t["n_frames"] >= 300]
+        phase_lags_padded = [t["phase_lag_padded"] for t in all_offline if t["n_frames"] >= 300]
         smooth = [t["recorded_smoothness"] for t in all_offline if t["n_frames"] >= 300]
         mean_acc = [t["recorded_mean_acceleration"] for t in all_offline if t["n_frames"] >= 300]
-        summary_lines.append(f"Overall Offline (n={len(mpjpes)}): MPJPE = {sum(mpjpes)/len(mpjpes):.1f} mm, MPJPE_padded = {sum(mpjpes_padded)/len(mpjpes_padded):.1f} mm, MPJPE_lower = {sum(mpjpes_lower)/len(mpjpes_lower):.1f} mm, MPJPE_padded_lower = {sum(mpjpes_padded_lower)/len(mpjpes_padded_lower):.1f} mm, DTW = {sum(dtw)/len(dtw):.2f} mm, DTW_padded = {sum(dtw_padded)/len(dtw_padded):.2f} mm, Smooth = {sum(smooth)/len(smooth):.2f} rad/s³, MeanAcc = {sum(mean_acc)/len(mean_acc):.2f} rad/s²")
+        summary_lines.append(f"Overall Offline (n={len(mpjpes)}): MPJPE = {sum(mpjpes)/len(mpjpes):.1f} mm, MPJPE_padded = {sum(mpjpes_padded)/len(mpjpes_padded):.1f} mm, MPJPE_lower = {sum(mpjpes_lower)/len(mpjpes_lower):.1f} mm, MPJPE_padded_lower = {sum(mpjpes_padded_lower)/len(mpjpes_padded_lower):.1f} mm, DTW = {sum(dtw)/len(dtw):.2f} mm, DTW_padded = {sum(dtw_padded)/len(dtw_padded):.2f} mm, CrossCorr = {sum(cross_corrs)/len(cross_corrs):.3f}, PhaseLag = {sum(phase_lags)/len(phase_lags):.2f} frames, CrossCorr_padded = {sum(cross_corrs_padded)/len(cross_corrs_padded):.3f}, PhaseLag_padded = {sum(phase_lags_padded)/len(phase_lags_padded):.2f} frames, Smooth = {sum(smooth)/len(smooth):.2f} rad/s³, MeanAcc = {sum(mean_acc)/len(mean_acc):.2f} rad/s²")
 
     summary_lines.append("=" * 80)
     

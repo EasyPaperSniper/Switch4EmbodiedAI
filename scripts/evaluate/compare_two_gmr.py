@@ -61,12 +61,13 @@ HERE = pathlib.Path(__file__).parent
 sys.path.append(str(HERE / ".." / ".."))
 
 # Recording GMR files
-# from scripts.evaluate.data.gmt_sim_paths import gmr_paths, gmr_padded_paths
+from scripts.evaluate.data.gmt_sim_paths import gmr_paths, gmr_padded_paths
 # from scripts.evaluate.data.twist_sim_paths import gmr_paths, gmr_padded_paths
 # from scripts.evaluate.data.any2track_sim_paths import gmr_paths, gmr_padded_paths
+
 # from scripts.evaluate.data.gmt_paths import gmr_paths, gmr_padded_paths
 # from scripts.evaluate.data.twist_paths import gmr_paths, gmr_padded_paths
-from scripts.evaluate.data.any2track_paths import gmr_paths, gmr_padded_paths
+# from scripts.evaluate.data.any2track_paths import gmr_paths, gmr_padded_paths
 
 # from scripts.evaluate.data.human_paths import gmr_paths, gmr_padded_paths
 
@@ -86,9 +87,10 @@ REFERENCE_GMR_MAP_ONLINE = {
     "Pink_Venom": "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/online/Pink_Venom/Pink_Venom_Online_Reference.pkl",
 }
 
+## Below 3 lines are debug options to compare between offline and online references
 # gmr_paths = [path for path in REFERENCE_GMR_MAP_OFFLINE.values()]
-gmr_paths = [path for path in REFERENCE_GMR_MAP_ONLINE.values()]
-gmr_padded_paths = gmr_paths
+# gmr_paths = [path for path in REFERENCE_GMR_MAP_ONLINE.values()]
+# gmr_padded_paths = gmr_paths
 
 # Helper function to get song name from path
 def get_song_name(path):
@@ -108,6 +110,7 @@ def get_is_online(path):
 
 def get_reference_map(path):
     """Get appropriate reference map based on online/offline status."""
+    # For the paper, we compare against offline references only, as this measures how much the recorded motion deviates from the ideal motion.
     return REFERENCE_GMR_MAP_OFFLINE
     if get_is_online(path):
         return REFERENCE_GMR_MAP_ONLINE

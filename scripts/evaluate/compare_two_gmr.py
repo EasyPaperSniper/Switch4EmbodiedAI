@@ -509,44 +509,77 @@ def generate_summary(recorded_paths, summary_suffix=""):
     print(f"\n✓ Summary saved to: {output_file}")
     print('\n'.join(summary_lines))
 
+import argparse
+import importlib
+from multiprocessing import Pool, cpu_count
 
-if __name__ == "__main__":
-    import argparse, importlib
+# --- 1. Move configuration and functions to Global Scope ---
 
-    m = {
-        "gmt_sim": "scripts.evaluate.data.gmt_sim_paths",
-        "twist_sim": "scripts.evaluate.data.twist_sim_paths",
-        "any2track_sim": "scripts.evaluate.data.any2track_sim_paths",
-        "gmt_real": "scripts.evaluate.data.gmt_paths",
-        "twist_real": "scripts.evaluate.data.twist_paths",
-        "any2track_real": "scripts.evaluate.data.any2track_paths",
-    }
+# Define the dictionary globally so the worker function can access it
+m = {
+    "gmt_sim": "scripts.evaluate.data.gmt_sim_paths",
+    "twist_sim": "scripts.evaluate.data.twist_sim_paths",
+    "any2track_sim": "scripts.evaluate.data.any2track_sim_paths",
+    "gmt_real": "scripts.evaluate.data.gmt_paths",
+    "twist_real": "scripts.evaluate.data.twist_paths",
+    "any2track_real": "scripts.evaluate.data.any2track_paths",
+}
 
-    a = argparse.ArgumentParser()
-    DEFAULT_DATASET = "gmt_sim"
+# The worker function must be at the top level to be picklable
+def process_dataset(dataset_name):
+    # Note: Ensure get_reference_map, get_song_name, compare_two_gmr, 
+    # and generate_summary are imported or defined in this file.
     
-    # Add 'all' to the list of choices
-    choices = list(m.keys()) + ["all"]
-    a.add_argument("--dataset", default=DEFAULT_DATASET, choices=choices)
-    args = a.parse_args()
-
-    # Helper function
-    def process_dataset(dataset_name):
-        print(f"Processing: {dataset_name}") 
-        
+    # Use a try/except block so one failure doesn't crash the whole pool
+    try:
         mod = importlib.import_module(m[dataset_name])
         gmr_paths = mod.gmr_paths
         gmr_padded_paths = mod.gmr_padded_paths
         
+        # specific logic (assuming helper functions exist globally)
         reference_gmr_paths = [get_reference_map(p)[get_song_name(p)] for p in gmr_paths]
         
         compare_two_gmr(gmr_paths, gmr_padded_paths, reference_gmr_paths, verbose=False)
-        generate_summary(gmr_paths, summary_suffix="_" + dataset_name)
+        generate_summary(gmr_paths, summary_suffix="_MP_" + dataset_name)
+        
+        return f"Success: {dataset_name}"
+    except Exception as e:
+        return f"Error processing {dataset_name}: {str(e)}"
 
-    # Execution Logic
+# --- 2. Main Execution Block ---
+
+if __name__ == "__main__":
+    a = argparse.ArgumentParser()
+    DEFAULT_DATASET = "gmt_sim"
+    
+    choices = list(m.keys()) + ["all"]
+    a.add_argument("--dataset", default=DEFAULT_DATASET, choices=choices)
+    args = a.parse_args()
+
     if args.dataset == "all":
-        # Loop through keys with a progress bar
-        for key in tqdm(m, desc="Evaluated Datasets", unit="set"):
-            process_dataset(key)
+        datasets_to_process = list(m.keys())
+        
+        # Use almost all CPUs, leaving one free for system responsiveness
+        num_processes = max(1, cpu_count() - 1)
+        
+        print(f"Starting multiprocessing with {num_processes} cores...")
+        
+        with Pool(processes=num_processes) as pool:
+            # imap_unordered is usually faster if you don't care about the order of results
+            # passing it to tqdm creates the progress bar
+            results = list(tqdm(
+                pool.imap_unordered(process_dataset, datasets_to_process), 
+                total=len(datasets_to_process),
+                desc="Evaluated Datasets",
+                unit="set"
+            ))
+            
+        # Optional: Print results/errors after completion
+        for res in results:
+            if "Error" in res:
+                print(res)
+                
     else:
+        # Standard single execution
+        print(f"Processing: {args.dataset}") 
         process_dataset(args.dataset)

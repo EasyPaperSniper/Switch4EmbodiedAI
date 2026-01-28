@@ -524,12 +524,29 @@ if __name__ == "__main__":
 
     a = argparse.ArgumentParser()
     DEFAULT_DATASET = "gmt_sim"
-    a.add_argument("--dataset", default=DEFAULT_DATASET, choices=m)
+    
+    # Add 'all' to the list of choices
+    choices = list(m.keys()) + ["all"]
+    a.add_argument("--dataset", default=DEFAULT_DATASET, choices=choices)
     args = a.parse_args()
 
-    gmr_paths, gmr_padded_paths = importlib.import_module(m[args.dataset]).gmr_paths, \
-                                  importlib.import_module(m[args.dataset]).gmr_padded_paths
-    # Generate corresponding reference paths
-    reference_gmr_paths = [get_reference_map(p)[get_song_name(p)] for p in gmr_paths]
-    compare_two_gmr(gmr_paths, gmr_padded_paths, reference_gmr_paths, verbose=False)
-    generate_summary(gmr_paths, summary_suffix="_" + args.dataset)
+    # Helper function
+    def process_dataset(dataset_name):
+        print(f"Processing: {dataset_name}") 
+        
+        mod = importlib.import_module(m[dataset_name])
+        gmr_paths = mod.gmr_paths
+        gmr_padded_paths = mod.gmr_padded_paths
+        
+        reference_gmr_paths = [get_reference_map(p)[get_song_name(p)] for p in gmr_paths]
+        
+        compare_two_gmr(gmr_paths, gmr_padded_paths, reference_gmr_paths, verbose=False)
+        generate_summary(gmr_paths, summary_suffix="_" + dataset_name)
+
+    # Execution Logic
+    if args.dataset == "all":
+        # Loop through keys with a progress bar
+        for key in tqdm(m, desc="Evaluated Datasets", unit="set"):
+            process_dataset(key)
+    else:
+        process_dataset(args.dataset)

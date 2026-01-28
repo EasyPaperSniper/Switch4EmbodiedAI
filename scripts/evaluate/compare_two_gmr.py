@@ -60,17 +60,6 @@ import pathlib
 HERE = pathlib.Path(__file__).parent
 sys.path.append(str(HERE / ".." / ".."))
 
-# Recording GMR files
-from scripts.evaluate.data.gmt_sim_paths import gmr_paths, gmr_padded_paths
-# from scripts.evaluate.data.twist_sim_paths import gmr_paths, gmr_padded_paths
-# from scripts.evaluate.data.any2track_sim_paths import gmr_paths, gmr_padded_paths
-
-# from scripts.evaluate.data.gmt_paths import gmr_paths, gmr_padded_paths
-# from scripts.evaluate.data.twist_paths import gmr_paths, gmr_padded_paths
-# from scripts.evaluate.data.any2track_paths import gmr_paths, gmr_padded_paths
-
-# from scripts.evaluate.data.human_paths import gmr_paths, gmr_padded_paths
-
 # Reference GMR 
 REFERENCE_GMR_MAP_OFFLINE = {
     "Old_Town_Road": "/home/jkim3662/Videos/Switch4EAI/ReferenceSwitchRecordings_GMR/cut_mirrored/Old_Town_Road_cut/Old_Town_Road_cut_poses.pkl",
@@ -116,9 +105,6 @@ def get_reference_map(path):
         return REFERENCE_GMR_MAP_ONLINE
     else:
         return REFERENCE_GMR_MAP_OFFLINE
-
-# Generate corresponding reference paths
-reference_gmr_paths = [get_reference_map(p)[get_song_name(p)] for p in gmr_paths]
 
 # Robot model XML path
 ROBOT_XML = REPO_ROOT / "third_party" / "GMR" / "assets" / "unitree_g1" / "g1_mocap_29dof.xml"
@@ -364,104 +350,107 @@ def save_results(recorded_path, results):
     with open(output_path, 'w') as f:
         json.dump(results_serializable, f, indent=2)
 
-
-for i, recorded_gmr_path in enumerate(tqdm(gmr_paths, desc="Processing recordings")):
-    reference_gmr_path = reference_gmr_paths[i]
-    
-    try:
-        # Load data
-        recorded_data = load_gmr_data(recorded_gmr_path)
-        reference_data = load_gmr_data(reference_gmr_path)
+def compare_two_gmr(gmr_paths, gmr_padded_paths, reference_gmr_paths, verbose=True):
+    """Main function to compare two GMR files."""
+    for i, recorded_gmr_path in enumerate(tqdm(gmr_paths, desc="Processing recordings")):
+        reference_gmr_path = reference_gmr_paths[i]
         
-        # Align trajectories to zero first (before time alignment)
-        recorded_data = align_to_zero(recorded_data)
-        reference_data = align_to_zero(reference_data)
-        
-        # Compute forward kinematics
-        recorded_body_pos, body_names = compute_forward_kinematics(ROBOT_XML, recorded_data)
-        reference_body_pos, _ = compute_forward_kinematics(ROBOT_XML, reference_data)
+        try:
+            # Load data
+            recorded_data = load_gmr_data(recorded_gmr_path)
+            reference_data = load_gmr_data(reference_gmr_path)
+            
+            # Align trajectories to zero first (before time alignment)
+            recorded_data = align_to_zero(recorded_data)
+            reference_data = align_to_zero(reference_data)
+            
+            # Compute forward kinematics
+            recorded_body_pos, body_names = compute_forward_kinematics(ROBOT_XML, recorded_data)
+            reference_body_pos, _ = compute_forward_kinematics(ROBOT_XML, reference_data)
 
-        
-        # Find optimal time alignment on MPJPE
-        recorded_body_pos_aligned, reference_body_pos_aligned, recorded_aligned_indices, reference_aligned_indices, _ = find_optimal_time_alignment_mpjpe(
-            recorded_body_pos,
-            reference_body_pos
-        )
-        
-        n_frames = recorded_body_pos_aligned.shape[0]
-
-        UPPERBODY_INDICES = [15, 16, 17, 18, 19, 20, 21, 22]  # Arms
-        # Compute metrics
-        mpjpe = compute_mpjpe(recorded_body_pos_aligned, reference_body_pos_aligned)
-        recorded_smoothness, recorded_velocity_discontinuity, recorded_mean_velocity, recorded_mean_acceleration = compute_joint_smoothness(
-            recorded_data['dof_pos'][recorded_aligned_indices], recorded_data['fps']
-        )
-        reference_smoothness, reference_velocity_discontinuity, reference_mean_velocity, reference_mean_acceleration = compute_joint_smoothness(
-            reference_data['dof_pos'][reference_aligned_indices], reference_data['fps']
-        )
-
-        if True:
-            recorded_padded_gmr_path = gmr_padded_paths[i]
-            recorded_padded_data = load_gmr_data(recorded_padded_gmr_path)
-            recorded_padded_data = align_to_zero(recorded_padded_data)
-            recorded_padded_body_pos, _ = compute_forward_kinematics(ROBOT_XML, recorded_padded_data)
+            
             # Find optimal time alignment on MPJPE
-            recorded_padded_body_pos_aligned, reference_padded_body_pos_aligned, recorded_aligned_indices, reference_aligned_indices, _ = find_optimal_time_alignment_mpjpe(
-                recorded_padded_body_pos,
+            recorded_body_pos_aligned, reference_body_pos_aligned, recorded_aligned_indices, reference_aligned_indices, _ = find_optimal_time_alignment_mpjpe(
+                recorded_body_pos,
                 reference_body_pos
             )
+            
+            n_frames = recorded_body_pos_aligned.shape[0]
 
-            n_frames_padded = recorded_padded_body_pos_aligned.shape[0]
+            UPPERBODY_INDICES = [15, 16, 17, 18, 19, 20, 21, 22]  # Arms
             # Compute metrics
-            mpjpe_padded = compute_mpjpe(recorded_padded_body_pos_aligned, reference_padded_body_pos_aligned)
+            mpjpe = compute_mpjpe(recorded_body_pos_aligned, reference_body_pos_aligned)
+            recorded_smoothness, recorded_velocity_discontinuity, recorded_mean_velocity, recorded_mean_acceleration = compute_joint_smoothness(
+                recorded_data['dof_pos'][recorded_aligned_indices], recorded_data['fps']
+            )
+            reference_smoothness, reference_velocity_discontinuity, reference_mean_velocity, reference_mean_acceleration = compute_joint_smoothness(
+                reference_data['dof_pos'][reference_aligned_indices], reference_data['fps']
+            )
 
-        
-        # Save results
-        results = {
-            'recorded_path': recorded_gmr_path,
-            'recorded_padded_path': recorded_padded_gmr_path,
-            'reference_path': reference_gmr_path,
-            'n_frames': n_frames,
-            'fps': recorded_data['fps'],
-            'mpjpe_mm': float(mpjpe * 1000),
-            'mpjpe_padded_mm': float(mpjpe_padded * 1000),
-            # 'body_names': body_names,
-            'recorded_smoothness': float(recorded_smoothness),
-            # 'reference_smoothness': float(reference_smoothness),
-            # 'smoothness_ratio': float(recorded_smoothness / reference_smoothness),
-            # 'recorded_velocity_discontinuity': float(recorded_velocity_discontinuity),
-            # 'reference_velocity_discontinuity': float(reference_velocity_discontinuity),
-            # 'recorded_mean_velocity': float(recorded_mean_velocity),
-            # 'reference_mean_velocity': float(reference_mean_velocity),
-            'recorded_mean_acceleration': float(recorded_mean_acceleration),
-            # 'reference_mean_acceleration': float(reference_mean_acceleration),
-        }
-        save_results(recorded_gmr_path, results)
-        
-        # Print summary
-        tqdm.write(
-            f"{Path(recorded_gmr_path).stem} | "
-            f"Frames: {n_frames} | "
-            f"MPJPE: {mpjpe*1000:.1f} mm | "
-            f"Frames_padded: {n_frames_padded} | "
-            f"MPJPE_padded: {mpjpe_padded*1000:.1f} mm | "
-            f"Smooth: {recorded_smoothness:.2f} rad/s³ | "
-            # f"VelDisc: {recorded_velocity_discontinuity:.2f} rad/s | "
-            f"MeanAcc: {recorded_mean_acceleration:.2f} rad/s² | "
-            # f"MeanVel: {recorded_mean_velocity:.2f} rad/s"
-        )
-        
-    except Exception as e:
-        tqdm.write(f"ERROR processing {Path(recorded_gmr_path).name}: {e}")
-        continue
+            if True:
+                recorded_padded_gmr_path = gmr_padded_paths[i]
+                recorded_padded_data = load_gmr_data(recorded_padded_gmr_path)
+                recorded_padded_data = align_to_zero(recorded_padded_data)
+                recorded_padded_body_pos, _ = compute_forward_kinematics(ROBOT_XML, recorded_padded_data)
+                # Find optimal time alignment on MPJPE
+                recorded_padded_body_pos_aligned, reference_padded_body_pos_aligned, recorded_aligned_indices, reference_aligned_indices, _ = find_optimal_time_alignment_mpjpe(
+                    recorded_padded_body_pos,
+                    reference_body_pos
+                )
 
-print("\n✓ All comparisons complete!")
+                n_frames_padded = recorded_padded_body_pos_aligned.shape[0]
+                # Compute metrics
+                mpjpe_padded = compute_mpjpe(recorded_padded_body_pos_aligned, reference_padded_body_pos_aligned)
+
+            
+            # Save results
+            results = {
+                'recorded_path': recorded_gmr_path,
+                'recorded_padded_path': recorded_padded_gmr_path,
+                'reference_path': reference_gmr_path,
+                'n_frames': n_frames,
+                'fps': recorded_data['fps'],
+                'mpjpe_mm': float(mpjpe * 1000),
+                'mpjpe_padded_mm': float(mpjpe_padded * 1000),
+                # 'body_names': body_names,
+                'recorded_smoothness': float(recorded_smoothness),
+                # 'reference_smoothness': float(reference_smoothness),
+                # 'smoothness_ratio': float(recorded_smoothness / reference_smoothness),
+                # 'recorded_velocity_discontinuity': float(recorded_velocity_discontinuity),
+                # 'reference_velocity_discontinuity': float(reference_velocity_discontinuity),
+                # 'recorded_mean_velocity': float(recorded_mean_velocity),
+                # 'reference_mean_velocity': float(reference_mean_velocity),
+                'recorded_mean_acceleration': float(recorded_mean_acceleration),
+                # 'reference_mean_acceleration': float(reference_mean_acceleration),
+            }
+            save_results(recorded_gmr_path, results)
+            
+            # Print summary
+            if not verbose:
+                continue
+            tqdm.write(
+                f"{Path(recorded_gmr_path).stem} | "
+                f"Frames: {n_frames} | "
+                f"MPJPE: {mpjpe*1000:.1f} mm | "
+                f"Frames_padded: {n_frames_padded} | "
+                f"MPJPE_padded: {mpjpe_padded*1000:.1f} mm | "
+                f"Smooth: {recorded_smoothness:.2f} rad/s³ | "
+                # f"VelDisc: {recorded_velocity_discontinuity:.2f} rad/s | "
+                f"MeanAcc: {recorded_mean_acceleration:.2f} rad/s² | "
+                # f"MeanVel: {recorded_mean_velocity:.2f} rad/s"
+            )
+            
+        except Exception as e:
+            tqdm.write(f"ERROR processing {Path(recorded_gmr_path).name}: {e}")
+            continue
+
+    print("\n✓ All comparisons complete!")
 
 ####################
 # Generate summary #
 ####################
 
-def generate_summary(recorded_paths):
+def generate_summary(recorded_paths, summary_suffix=""):
     """Generate a summary of all comparison results."""
     from collections import defaultdict
     from datetime import datetime
@@ -538,7 +527,7 @@ def generate_summary(recorded_paths):
     # Write to file
     output_dir = REPO_ROOT / "plots" / "gmr"
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_file = output_dir / "comparison_summary.txt"
+    output_file = output_dir / f"comparison_summary{summary_suffix}.txt"
     
     with open(output_file, 'w') as f:
         f.write('\n'.join(summary_lines))
@@ -546,4 +535,27 @@ def generate_summary(recorded_paths):
     print(f"\n✓ Summary saved to: {output_file}")
     print('\n'.join(summary_lines))
 
-generate_summary(gmr_paths)
+
+if __name__ == "__main__":
+    import argparse, importlib
+
+    m = {
+        "gmt_sim": "scripts.evaluate.data.gmt_sim_paths",
+        "twist_sim": "scripts.evaluate.data.twist_sim_paths",
+        "any2track_sim": "scripts.evaluate.data.any2track_sim_paths",
+        "gmt_real": "scripts.evaluate.data.gmt_paths",
+        "twist_real": "scripts.evaluate.data.twist_paths",
+        "any2track_real": "scripts.evaluate.data.any2track_paths",
+    }
+
+    a = argparse.ArgumentParser()
+    DEFAULT_DATASET = "gmt_sim"
+    a.add_argument("--dataset", default=DEFAULT_DATASET, choices=m)
+    args = a.parse_args()
+
+    gmr_paths, gmr_padded_paths = importlib.import_module(m[args.dataset]).gmr_paths, \
+                                  importlib.import_module(m[args.dataset]).gmr_padded_paths
+    # Generate corresponding reference paths
+    reference_gmr_paths = [get_reference_map(p)[get_song_name(p)] for p in gmr_paths]
+    compare_two_gmr(gmr_paths, gmr_padded_paths, reference_gmr_paths, verbose=False)
+    generate_summary(gmr_paths, summary_suffix="_" + args.dataset)

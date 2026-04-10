@@ -16,3 +16,6 @@ data/
 plots/
 .vscode
 .vscode/
+
+plots_before_camera_ready/
+.codex
